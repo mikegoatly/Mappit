@@ -36,6 +36,11 @@ namespace Mappit.Tests
         public DateTime DateCreated { get; set; }  // Maps from CreatedOn
     }
 
+    public class WeirdModel
+    {
+        public string Name { get; set; }
+    }
+
     // Custom mapper with property and enum mappings
     public partial class CustomMappingTestMapper : MapperBase
     {
@@ -45,5 +50,18 @@ namespace Mappit.Tests
         [MapEnumValue(nameof(SourceStatus.Inactive), nameof(TargetStatus.Disabled))]
         [MapEnumValue(nameof(SourceStatus.Pending), nameof(TargetStatus.AwaitingConfirmation))]
         private TypeMapping sourceToTarget;
+
+        protected override void InitializeCustomMappings()
+        {
+            RegisterMapping(new WeirdMapping());
+        }
+
+        private class WeirdMapping : TypeMapping<WeirdModel, WeirdModel>
+        {
+            public override WeirdModel Map(WeirdModel source)
+            {
+                return new WeirdModel { Name = new string([..source.Name.Reverse()]) };
+            }
+        }
     }
 }

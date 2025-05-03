@@ -1,3 +1,5 @@
+﻿> ⚠️ This project is in **very** early development and it should be considered a proof of concept implementation for now. The API may change, and there may be bugs. Use at your own risk.
+
 # Mappit
 
 Mappit is a library that allows simple mapping between two types. Instead of using reflection at runtime, code generation is used to define the mapping code.
@@ -85,6 +87,28 @@ All enum values are validated at compile time, ensuring correctness:
 - If a source or target enum value doesn't exist, you'll get a compilation error
 - The error will point to the exact attribute argument that contains the invalid value
 - Mappings without explicit custom values use the direct numeric cast for the underlying enum values
+
+## Custom type mappings
+
+If you run into limitations for a certain type, you can always define your own `TypeMapping`:
+
+```csharp
+public partial class CustomMappingTestMapper : MapperBase
+{
+    protected override void InitializeCustomMappings()
+    {
+        RegisterMapping(new WeirdMapping());
+    }
+
+    private class WeirdMapping : TypeMapping<WeirdModel, WeirdOtherModel>
+    {
+        public override WeirdModel Map(WeirdModel source)
+        {
+            return new WeirdModel { Name = new string([..source.Name.Reverse()]) };
+        }
+    }
+}
+```
 
 ## Compile-time Safety
 

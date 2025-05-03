@@ -64,5 +64,16 @@ namespace Mappit.Tests
                 Assert.Equal(test.Expected, target.Status);
             }
         }
+
+        [Fact]
+        public void Map_WithWeirdMapping_ShouldMapCorrectly()
+        {
+            // Arrange
+            var source = new WeirdModel { Name = "Weird" };
+            // Act
+            var target = _mapper.Map<WeirdModel>(source);
+            // Assert
+            Assert.Equal("drieW", target.Name);
+        }
     }
 }

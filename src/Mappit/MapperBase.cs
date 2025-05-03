@@ -16,6 +16,14 @@ namespace Mappit
         protected MapperBase()
         {
             this._mappings = new Dictionary<Type, Dictionary<Type, TypeMapping>>();
+            this.InitializeCustomMappings();
+        }
+
+        /// <summary>
+        /// This method can be overridden to register custom <see cref="TypeMapping"/> mappings.
+        /// </summary>
+        protected virtual void InitializeCustomMappings()
+        {
         }
 
         /// <summary>
@@ -30,6 +38,22 @@ namespace Mappit
             }
 
             destMappings[destinationType] = mapping;
+        }
+
+        /// <summary>
+        /// Registers a mapping between source and destination types
+        /// </summary>
+        protected void RegisterMapping<TSource, TDestination>(TypeMapping mapping)
+        {
+            RegisterMapping(typeof(TSource), typeof(TDestination), mapping);
+        }
+
+        /// <summary>
+        /// Registers a mapping between source and destination types
+        /// </summary>
+        protected void RegisterMapping<TSource, TDestination>(TypeMapping<TSource, TDestination> mapping)
+        {
+            RegisterMapping(typeof(TSource), typeof(TDestination), mapping);
         }
 
         /// <summary>
