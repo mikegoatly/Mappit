@@ -119,8 +119,6 @@ namespace Mappit.Tests
         }
     }
 
-    // Test classes for mapping
-
     public class SourceWithProperties
     {
         public int Id { get; set; }
@@ -156,7 +154,6 @@ namespace Mappit.Tests
         public string Name { get; }
         public string Description { get; }
 
-        // Parameterized constructor with no default constructor
         public TargetWithConstructor(int id, string name, string description)
         {
             Id = id;
@@ -173,7 +170,6 @@ namespace Mappit.Tests
         public DateTime CreatedDate { get; set; }
         public bool IsActive { get; set; }
 
-        // Constructor sets some properties, others are set via property setters
         public TargetWithMixedInitialization(int id, string name)
         {
             Id = id;
@@ -187,7 +183,6 @@ namespace Mappit.Tests
         public string Name { get; }
         public string Description { get; }
 
-        // Constructor with a mix of required and optional parameters
         public TargetWithRequiredConstructor(int id, string name, string description = null)
         {
             Id = id;
@@ -199,22 +194,17 @@ namespace Mappit.Tests
     // Test mapper class
     public partial class ConstructorTestMapper : MapperBase
     {
-        [MapType(typeof(SourceWithProperties), typeof(TargetWithConstructor))]
-        private readonly TypeMapping _sourceToTargetMapping;
+        private readonly TypeMapping<SourceWithProperties, TargetWithConstructor>  _sourceToTargetMapping;
 
-        [MapType(typeof(SourceWithProperties), typeof(TargetWithMixedInitialization))]
-        private readonly TypeMapping _sourceToMixedMapping;
+        private readonly TypeMapping<SourceWithProperties,TargetWithMixedInitialization>  _sourceToMixedMapping;
 
-        [MapType(typeof(SourceWithDifferentCasing), typeof(TargetWithConstructor))]
-        private readonly TypeMapping _casingTestMapping;
+        private readonly TypeMapping<SourceWithDifferentCasing,TargetWithConstructor>  _casingTestMapping;
 
-        [MapType(typeof(SourceWithLimitedProperties), typeof(TargetWithRequiredConstructor))]
-        private readonly TypeMapping _limitedPropsMapping;
+        private readonly TypeMapping<SourceWithLimitedProperties,TargetWithRequiredConstructor>  _limitedPropsMapping;
 
-        [MapType(typeof(SourceWithCustomProperties), typeof(TargetWithConstructor))]
         [MapProperty("Identifier", "Id")]
         [MapProperty("Title", "Name")]
         [MapProperty("Text", "Description")]
-        private readonly TypeMapping _customPropsMapping;
+        private readonly TypeMapping<SourceWithCustomProperties, TargetWithConstructor>  _customPropsMapping;
     }
 }

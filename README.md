@@ -11,8 +11,7 @@ The library errs on the side of correctness, so if types can't be fully mapped y
 ``` csharp
 public partial class Mapper : MappingBase
 {
-    [MapType(typeof(Foo), typeof(FooRepresentation))]
-    private TypeMapping foo;
+    private TypeMapping<Foo, FooRepresentation> foo;
 }
 ```
 
@@ -43,9 +42,8 @@ If you need to map properties with different names, you can use the `MapProperty
 ```csharp
 public partial class Mapper : MappingBase
 {
-    [MapType(typeof(Foo), typeof(FooRepresentation))]
     [MapProperty(nameof(Foo.SourceProp), nameof(FooRepresentation.TargetProp))]
-    private TypeMapping foo;
+    private TypeMapping<Foo, FooRepresentation> foo;
 }
 ```
 
@@ -76,11 +74,10 @@ public enum TargetStatus {
 
 public partial class Mapper : MappingBase
 {
-    [MapType(typeof(SourceModel), typeof(TargetModel))]
     [MapEnumValue(nameof(SourceStatus.Active), nameof(TargetStatus.Enabled))]
     [MapEnumValue(nameof(SourceStatus.Inactive), nameof(TargetStatus.Disabled))]
     [MapEnumValue(nameof(SourceStatus.Pending), nameof(TargetStatus.AwaitingConfirmation))]
-    private TypeMapping sourceToTarget;
+    private TypeMapping<SourceModel, TargetModel> sourceToTarget;
 }
 ```
 
@@ -122,7 +119,7 @@ Mappit focuses on correctness through compile-time validation:
 
 ## How Mappit Works
 
-1. You define mappings using attributes
+1. You define mappings as generic fields
 2. The source generator analyzes your code at compile time
 3. It generates mapping implementations based on your definitions
 4. The generated code handles the actual property mappings

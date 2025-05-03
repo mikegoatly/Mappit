@@ -33,7 +33,8 @@ namespace Mappit.Tests
             {
                 Id = 1,
                 FirstName = "John",
-                LastName = "Doe"
+                LastName = "Doe",
+                Email = "j@doe.com"
             };
 
             // Act & Assert - Trying to map Person to EmployeeDto (no mapping defined)
@@ -51,7 +52,8 @@ namespace Mappit.Tests
             {
                 Id = 1,
                 FirstName = "John",
-                LastName = "Doe"
+                LastName = "Doe",
+                Email = "j@doe.com"
             };
 
             // Act & Assert - Trying to map Person to EmployeeDto (no mapping defined)

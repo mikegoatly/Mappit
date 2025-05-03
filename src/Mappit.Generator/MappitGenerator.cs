@@ -45,10 +45,16 @@ namespace Mappit.Generator
                 Symbol = classSymbol
             };
 
-            // Find fields with MapTypeAttribute
+            // Find fields with TypeMapping<TSource, TDestination> type
             foreach (var member in classSymbol.GetMembers())
             {
-                if (member is IFieldSymbol fieldSymbol)
+                if (member is IFieldSymbol fieldSymbol &&
+                    fieldSymbol.Type is INamedTypeSymbol namedType &&
+                    namedType.IsGenericType &&
+                    namedType.Name == "TypeMapping" &&
+                    namedType.TypeArguments.Length == 2 &&
+                    namedType.TypeArguments[0] is ITypeSymbol sourceType &&
+                    namedType.TypeArguments[1] is ITypeSymbol destType)
                 {
                     // Find the field declaration in the syntax tree
                     var fieldDeclarations = classDeclarationSyntax.DescendantNodes()
@@ -62,77 +68,67 @@ namespace Mappit.Generator
                     }
 
                     var fieldDeclaration = fieldDeclarations.First();
+                    var mappingInfo = new MappingTypeInfo(fieldSymbol.Name, sourceType, destType);
 
-                    var mapTypeAttribute = fieldSymbol.GetAttributes()
-                        .FirstOrDefault(a => a.AttributeClass?.Name == "MapTypeAttribute");
+                    // Find any custom enum mappings
+                    var enumMappingAttributes = fieldSymbol.GetAttributes()
+                        .Where(a => a.AttributeClass?.Name == "MapEnumValueAttribute")
+                        .ToList();
 
-                    if (mapTypeAttribute != null
-                        && mapTypeAttribute.ConstructorArguments.Length == 2
-                        && mapTypeAttribute.ConstructorArguments[0].Value is ITypeSymbol sourceType
-                        && mapTypeAttribute.ConstructorArguments[1].Value is ITypeSymbol destType)
+                    // Find all MapEnumValue attributes in the syntax tree
+                    var enumAttributeSyntaxes = fieldDeclaration.AttributeLists
+                        .SelectMany(al => al.Attributes)
+                        .Where(a => a.Name.ToString() == "MapEnumValue" && a.ArgumentList?.Arguments.Count == 2)
+                        .ToList();
+
+                    // Match semantic attributes with syntax attributes based on their argument values
+                    for (int i = 0; i < enumMappingAttributes.Count && i < enumAttributeSyntaxes.Count; i++)
                     {
-                        var mappingInfo = new MappingTypeInfo(fieldSymbol.Name, sourceType, destType);
+                        var attr = enumMappingAttributes[i];
+                        var sourceValueName = attr.ConstructorArguments[0].Value as string;
+                        var targetValueName = attr.ConstructorArguments[1].Value as string;
 
-                        // Find any custom enum mappings
-                        var enumMappingAttributes = fieldSymbol.GetAttributes()
-                            .Where(a => a.AttributeClass?.Name == "MapEnumValueAttribute")
-                            .ToList();
+                        // Find the corresponding attribute syntax
+                        var matchingSyntax = enumAttributeSyntaxes.FirstOrDefault(a =>
+                            GetArgumentStringValue(a.ArgumentList!.Arguments[0], semanticModel) == sourceValueName &&
+                            GetArgumentStringValue(a.ArgumentList!.Arguments[1], semanticModel) == targetValueName);
 
-                        // Find all MapEnumValue attributes in the syntax tree
-                        var enumAttributeSyntaxes = fieldDeclaration.AttributeLists
-                            .SelectMany(al => al.Attributes)
-                            .Where(a => a.Name.ToString() == "MapEnumValue" && a.ArgumentList?.Arguments.Count == 2)
-                            .ToList();
+                        var attrSyntax = matchingSyntax ?? enumAttributeSyntaxes[i];
 
-                        // Match semantic attributes with syntax attributes based on their argument values
-                        for (int i = 0; i < enumMappingAttributes.Count && i < enumAttributeSyntaxes.Count; i++)
-                        {
-                            var attr = enumMappingAttributes[i];
-                            var sourceValueName = attr.ConstructorArguments[0].Value as string;
-                            var targetValueName = attr.ConstructorArguments[1].Value as string;
-
-                            // Find the corresponding attribute syntax
-                            var matchingSyntax = enumAttributeSyntaxes.FirstOrDefault(a =>
-                                GetArgumentStringValue(a.ArgumentList!.Arguments[0], semanticModel) == sourceValueName &&
-                                GetArgumentStringValue(a.ArgumentList!.Arguments[1], semanticModel) == targetValueName);
-
-                            var attrSyntax = matchingSyntax ?? enumAttributeSyntaxes[i];
-
-                            mappingInfo.EnumMappings.Add(
-                                new MappingMemberInfo(sourceValueName, targetValueName, attrSyntax));
-                        }
-
-                        // Find any custom property mappings
-                        var propertyMappingAttributes = fieldSymbol.GetAttributes()
-                            .Where(a => a.AttributeClass?.Name == "MapPropertyAttribute")
-                            .ToList();
-
-                        // Find all MapProperty attributes in the syntax tree
-                        var propAttributeSyntaxes = fieldDeclaration.AttributeLists
-                            .SelectMany(al => al.Attributes)
-                            .Where(a => a.Name.ToString() == "MapProperty" && a.ArgumentList?.Arguments.Count == 2)
-                            .ToList();
-
-                        // Match semantic attributes with syntax attributes based on their argument values
-                        for (int i = 0; i < propertyMappingAttributes.Count && i < propAttributeSyntaxes.Count; i++)
-                        {
-                            var attr = propertyMappingAttributes[i];
-                            var sourcePropertyName = attr.ConstructorArguments[0].Value as string;
-                            var targetPropertyName = attr.ConstructorArguments[1].Value as string;
-
-                            // Find the corresponding attribute syntax
-                            var matchingSyntax = propAttributeSyntaxes.FirstOrDefault(a =>
-                                GetArgumentStringValue(a.ArgumentList!.Arguments[0], semanticModel) == sourcePropertyName &&
-                                GetArgumentStringValue(a.ArgumentList!.Arguments[1], semanticModel) == targetPropertyName);
-
-                            var attrSyntax = matchingSyntax ?? propAttributeSyntaxes[i];
-
-                            mappingInfo.PropertyMappings.Add(
-                                new MappingMemberInfo(sourcePropertyName, targetPropertyName, attrSyntax));
-                        }
-
-                        mapperClass.Mappings.Add(mappingInfo);
+                        mappingInfo.EnumMappings.Add(
+                            new MappingMemberInfo(sourceValueName, targetValueName, attrSyntax));
                     }
+
+                    // Find any custom property mappings
+                    var propertyMappingAttributes = fieldSymbol.GetAttributes()
+                        .Where(a => a.AttributeClass?.Name == "MapPropertyAttribute")
+                        .ToList();
+
+                    // Find all MapProperty attributes in the syntax tree
+                    var propAttributeSyntaxes = fieldDeclaration.AttributeLists
+                        .SelectMany(al => al.Attributes)
+                        .Where(a => a.Name.ToString() == "MapProperty" && a.ArgumentList?.Arguments.Count == 2)
+                        .ToList();
+
+                    // Match semantic attributes with syntax attributes based on their argument values
+                    for (int i = 0; i < propertyMappingAttributes.Count && i < propAttributeSyntaxes.Count; i++)
+                    {
+                        var attr = propertyMappingAttributes[i];
+                        var sourcePropertyName = attr.ConstructorArguments[0].Value as string;
+                        var targetPropertyName = attr.ConstructorArguments[1].Value as string;
+
+                        // Find the corresponding attribute syntax
+                        var matchingSyntax = propAttributeSyntaxes.FirstOrDefault(a =>
+                            GetArgumentStringValue(a.ArgumentList!.Arguments[0], semanticModel) == sourcePropertyName &&
+                            GetArgumentStringValue(a.ArgumentList!.Arguments[1], semanticModel) == targetPropertyName);
+
+                        var attrSyntax = matchingSyntax ?? propAttributeSyntaxes[i];
+
+                        mappingInfo.PropertyMappings.Add(
+                            new MappingMemberInfo(sourcePropertyName, targetPropertyName, attrSyntax));
+                    }
+
+                    mapperClass.Mappings.Add(mappingInfo);
                 }
             }
 
@@ -202,7 +198,7 @@ namespace Mappit.Generator
             {
                 // Initialize and register each mapping
                 source.AppendLine($"            {mapping.FieldName} = new {mapping.FieldName}Mapping();");
-                source.AppendLine($"            RegisterMapping(typeof({mapping.SourceType.Name}), typeof({mapping.DestinationType.Name}), {mapping.FieldName});");
+                source.AppendLine($"            RegisterMapping({mapping.FieldName});");
             }
 
             source.AppendLine("        }");
@@ -363,40 +359,42 @@ namespace Mappit.Generator
 
             source.AppendLine();
             source.AppendLine($"        // Implement {fieldName} mapping from {sourceTypeName} to {destTypeName}");
-            source.AppendLine($"        private sealed class {fieldName}Mapping : Mappit.TypeMapping");
+            source.AppendLine($"        private sealed class {fieldName}Mapping : Mappit.TypeMapping<{sourceTypeName}, {destTypeName}>");
             source.AppendLine("        {");
-            source.AppendLine("            public override object Map(object source)");
+            source.AppendLine($"            public override {destTypeName} Map({sourceTypeName} typedSource)");
             source.AppendLine("            {");
-            source.AppendLine($"                var typedSource = ({sourceTypeName})source;");
-            
+
             // Find constructors for destination type
             var ctors = mapping.DestinationType.GetMembers()
                 .Where(m => m.Kind == SymbolKind.Method && m.Name == ".ctor")
                 .Cast<IMethodSymbol>()
                 .OrderByDescending(m => m.Parameters.Length)
                 .ToList();
-            
+
             var hasNonDefaultCtor = ctors.Any(c => c.Parameters.Length > 0);
             var hasDefaultCtor = ctors.Any(c => c.Parameters.Length == 0);
-            
+
+            // Start object initialization
+            source.AppendLine($"                return new {destTypeName}");
+
             // If we have a parameterized constructor and no default constructor
             if (hasNonDefaultCtor && !hasDefaultCtor)
             {
                 // Try to find the best constructor match
                 var bestCtor = FindBestConstructorMatch(mapping, ctors);
-                
+
                 if (bestCtor != null && bestCtor.Parameters.Length > 0)
                 {
                     // Generate constructor arguments
-                    source.Append($"                var result = new {destTypeName}(");
-                    
+                    source.Append("                (");
+
                     for (int i = 0; i < bestCtor.Parameters.Length; i++)
                     {
                         var param = bestCtor.Parameters[i];
-                        
+
                         // Try to find a property in source that matches the parameter
                         var matchingProperty = FindMatchingSourceProperty(mapping, param);
-                        
+
                         if (matchingProperty != null)
                         {
                             // For enum parameters, check if we need to map them
@@ -414,30 +412,30 @@ namespace Mappit.Generator
                             // Use default value for the parameter type
                             source.Append($"default({param.Type})");
                         }
-                        
+
                         if (i < bestCtor.Parameters.Length - 1)
                         {
                             source.Append(", ");
                         }
                     }
-                    
-                    source.AppendLine(");");
+
+                    source.AppendLine(")");
                 }
                 else
                 {
                     // Fall back to default constructor if no good match found
-                    source.AppendLine($"                var result = new {destTypeName}();");
+                    source.AppendLine("                ()");
                 }
             }
             else
             {
                 // Use default constructor
-                source.AppendLine($"                var result = new {destTypeName}();");
+                source.AppendLine("                ()");
             }
 
             // Collect all properties that were set via constructor
             var propertiesSetViaConstructor = new HashSet<string>();
-            
+
             if (hasNonDefaultCtor && !hasDefaultCtor)
             {
                 var bestCtor = FindBestConstructorMatch(mapping, ctors);
@@ -449,7 +447,7 @@ namespace Mappit.Generator
                         var matchingDestProperty = mapping.DestinationType.GetMembers()
                             .OfType<IPropertySymbol>()
                             .FirstOrDefault(p => string.Equals(p.Name, param.Name, System.StringComparison.OrdinalIgnoreCase));
-                        
+
                         if (matchingDestProperty != null)
                         {
                             propertiesSetViaConstructor.Add(matchingDestProperty.Name);
@@ -457,6 +455,12 @@ namespace Mappit.Generator
                     }
                 }
             }
+
+            // Start object initializer
+            source.AppendLine("                {");
+
+            // Flag to track if we've added any properties in the initializer
+            bool hasAddedProperty = false;
 
             // Handle custom property mappings first (skip those already set by constructor)
             foreach (var propertyMapping in mapping.PropertyMappings)
@@ -475,14 +479,16 @@ namespace Mappit.Generator
                     if (sourceProperty.Type.TypeKind == TypeKind.Enum && targetProperty.Type.TypeKind == TypeKind.Enum)
                     {
                         // Generate custom enum mapping
-                        source.AppendLine($"                // Custom mapping for enum property {propertyMapping.SourceName} to {propertyMapping.TargetName}");
-                        source.AppendLine($"                result.{propertyMapping.TargetName} = MapEnum_{propertyMapping.SourceName}_To_{propertyMapping.TargetName}(typedSource.{propertyMapping.SourceName});");
+                        source.AppendLine($"                    // Custom mapping for enum property {propertyMapping.SourceName} to {propertyMapping.TargetName}");
+                        source.AppendLine($"                    {propertyMapping.TargetName} = MapEnum_{propertyMapping.SourceName}_To_{propertyMapping.TargetName}(typedSource.{propertyMapping.SourceName}),");
+                        hasAddedProperty = true;
                     }
                     else
                     {
                         // Regular property mapping
-                        source.AppendLine($"                // Custom mapping from {propertyMapping.SourceName} to {propertyMapping.TargetName}");
-                        source.AppendLine($"                result.{propertyMapping.TargetName} = typedSource.{propertyMapping.SourceName};");
+                        source.AppendLine($"                    // Custom mapping from {propertyMapping.SourceName} to {propertyMapping.TargetName}");
+                        source.AppendLine($"                    {propertyMapping.TargetName} = typedSource.{propertyMapping.SourceName},");
+                        hasAddedProperty = true;
                     }
                 }
             }
@@ -511,18 +517,29 @@ namespace Mappit.Generator
                     if (property.Type.TypeKind == TypeKind.Enum && destProperty.Type.TypeKind == TypeKind.Enum)
                     {
                         // Generate standard enum mapping
-                        source.AppendLine($"                // Standard mapping for enum property {property.Name}");
-                        source.AppendLine($"                result.{property.Name} = MapEnum_{property.Name}(typedSource.{property.Name});");
+                        source.AppendLine($"                    // Standard mapping for enum property {property.Name}");
+                        source.AppendLine($"                    {property.Name} = MapEnum_{property.Name}(typedSource.{property.Name}),");
+                        hasAddedProperty = true;
                     }
                     else
                     {
                         // Regular property mapping
-                        source.AppendLine($"                result.{property.Name} = typedSource.{property.Name};");
+                        source.AppendLine($"                    {property.Name} = typedSource.{property.Name},");
+                        hasAddedProperty = true;
                     }
                 }
             }
 
-            source.AppendLine("                return result;");
+            // Remove trailing comma from the last property if any properties were added
+            if (hasAddedProperty)
+            {
+                // Remove the last comma and newline
+                source.Length -= 2;
+                source.AppendLine();
+            }
+
+            // Close the object initializer
+            source.AppendLine("                };");
             source.AppendLine("            }");
 
             // Generate enum mapping methods for each enum property
@@ -535,11 +552,11 @@ namespace Mappit.Generator
         {
             // First try exact match by number of source properties
             var sourceProperties = mapping.SourceType.GetMembers().OfType<IPropertySymbol>().ToList();
-            
+
             foreach (var ctor in constructors)
             {
                 int matchingParams = 0;
-                
+
                 foreach (var param in ctor.Parameters)
                 {
                     // Try to find a source property that matches parameter name and type
@@ -549,14 +566,14 @@ namespace Mappit.Generator
                         matchingParams++;
                     }
                 }
-                
+
                 // If all parameters can be matched, this is a good constructor choice
                 if (matchingParams == ctor.Parameters.Length)
                 {
                     return ctor;
                 }
             }
-            
+
             // If no perfect match, return the constructor with the most matching parameters
             return constructors
                 .OrderByDescending(c => c.Parameters.Count(p => FindMatchingSourceProperty(mapping, p) != null))
@@ -566,29 +583,29 @@ namespace Mappit.Generator
         private static IPropertySymbol FindMatchingSourceProperty(MappingTypeInfo mapping, IParameterSymbol parameter)
         {
             var sourceProperties = mapping.SourceType.GetMembers().OfType<IPropertySymbol>().ToList();
-            
+
             // First try direct name match
-            var matchByName = sourceProperties.FirstOrDefault(p => 
+            var matchByName = sourceProperties.FirstOrDefault(p =>
                 string.Equals(p.Name, parameter.Name, System.StringComparison.OrdinalIgnoreCase) &&
                 (p.Type.Equals(parameter.Type, SymbolEqualityComparer.Default) ||
                  (p.Type.TypeKind == TypeKind.Enum && parameter.Type.TypeKind == TypeKind.Enum)));
-                
+
             if (matchByName != null)
             {
                 return matchByName;
             }
-            
+
             // Check custom property mappings
             foreach (var customMapping in mapping.PropertyMappings)
             {
                 var sourceProperty = sourceProperties.FirstOrDefault(p => p.Name == customMapping.SourceName);
-                
+
                 if (sourceProperty != null)
                 {
                     var targetProperty = mapping.DestinationType.GetMembers().OfType<IPropertySymbol>()
                         .FirstOrDefault(p => p.Name == customMapping.TargetName);
-                    
-                    if (targetProperty != null && 
+
+                    if (targetProperty != null &&
                         string.Equals(targetProperty.Name, parameter.Name, System.StringComparison.OrdinalIgnoreCase) &&
                         (targetProperty.Type.Equals(parameter.Type, SymbolEqualityComparer.Default) ||
                          (targetProperty.Type.TypeKind == TypeKind.Enum && parameter.Type.TypeKind == TypeKind.Enum)))
@@ -597,7 +614,7 @@ namespace Mappit.Generator
                     }
                 }
             }
-            
+
             return null;
         }
 

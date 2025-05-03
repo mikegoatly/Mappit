@@ -81,4 +81,43 @@ namespace Mappit.Tests
             Assert.Equal(DisplayColor.Yellow, mappedBackDto.PrimaryColor);
         }
     }
+
+    public enum Color
+    {
+        Red = 0,
+        Green = 1,
+        Blue = 2
+    }
+
+    public enum DisplayColor
+    {
+        Red = 0,
+        Green = 1,
+        Blue = 2,
+        Yellow = 3
+    }
+
+    public class ModelWithEnum
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public Color PrimaryColor { get; set; }
+        public Color SecondaryColor { get; set; }
+    }
+
+    public class DtoWithEnum
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public DisplayColor PrimaryColor { get; set; }
+        public DisplayColor SecondaryColor { get; set; }
+    }
+
+    // Update the TestMapper to include enum mappings
+    public partial class TestMapperWithEnums : MapperBase
+    {
+        private TypeMapping<ModelWithEnum, DtoWithEnum> modelToDto;
+
+        private TypeMapping<DtoWithEnum, ModelWithEnum> dtoToModel;
+    }
 }

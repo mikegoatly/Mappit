@@ -7,10 +7,6 @@ namespace Mappit.Examples
     /// </summary>
     public partial class Mapper : MapperBase
     {
-        [MapType(typeof(Foo), typeof(FooRepresentation))]
-        private TypeMapping foo;
-        
-        // No need for any constructor or manual initialization
-        // MappingBase will automatically call the generated Initialize methods
+        private TypeMapping<Foo, FooRepresentation> foo;
     }
 }
