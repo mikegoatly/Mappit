@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
@@ -367,9 +368,97 @@ namespace Mappit.Generator
             source.AppendLine("            public override object Map(object source)");
             source.AppendLine("            {");
             source.AppendLine($"                var typedSource = ({sourceTypeName})source;");
-            source.AppendLine($"                var result = new {destTypeName}();");
+            
+            // Find constructors for destination type
+            var ctors = mapping.DestinationType.GetMembers()
+                .Where(m => m.Kind == SymbolKind.Method && m.Name == ".ctor")
+                .Cast<IMethodSymbol>()
+                .OrderByDescending(m => m.Parameters.Length)
+                .ToList();
+            
+            var hasNonDefaultCtor = ctors.Any(c => c.Parameters.Length > 0);
+            var hasDefaultCtor = ctors.Any(c => c.Parameters.Length == 0);
+            
+            // If we have a parameterized constructor and no default constructor
+            if (hasNonDefaultCtor && !hasDefaultCtor)
+            {
+                // Try to find the best constructor match
+                var bestCtor = FindBestConstructorMatch(mapping, ctors);
+                
+                if (bestCtor != null && bestCtor.Parameters.Length > 0)
+                {
+                    // Generate constructor arguments
+                    source.Append($"                var result = new {destTypeName}(");
+                    
+                    for (int i = 0; i < bestCtor.Parameters.Length; i++)
+                    {
+                        var param = bestCtor.Parameters[i];
+                        
+                        // Try to find a property in source that matches the parameter
+                        var matchingProperty = FindMatchingSourceProperty(mapping, param);
+                        
+                        if (matchingProperty != null)
+                        {
+                            // For enum parameters, check if we need to map them
+                            if (param.Type.TypeKind == TypeKind.Enum && matchingProperty.Type.TypeKind == TypeKind.Enum)
+                            {
+                                source.Append($"MapEnum_{matchingProperty.Name}(typedSource.{matchingProperty.Name})");
+                            }
+                            else
+                            {
+                                source.Append($"typedSource.{matchingProperty.Name}");
+                            }
+                        }
+                        else
+                        {
+                            // Use default value for the parameter type
+                            source.Append($"default({param.Type})");
+                        }
+                        
+                        if (i < bestCtor.Parameters.Length - 1)
+                        {
+                            source.Append(", ");
+                        }
+                    }
+                    
+                    source.AppendLine(");");
+                }
+                else
+                {
+                    // Fall back to default constructor if no good match found
+                    source.AppendLine($"                var result = new {destTypeName}();");
+                }
+            }
+            else
+            {
+                // Use default constructor
+                source.AppendLine($"                var result = new {destTypeName}();");
+            }
 
-            // Handle custom property mappings first
+            // Collect all properties that were set via constructor
+            var propertiesSetViaConstructor = new HashSet<string>();
+            
+            if (hasNonDefaultCtor && !hasDefaultCtor)
+            {
+                var bestCtor = FindBestConstructorMatch(mapping, ctors);
+                if (bestCtor != null)
+                {
+                    foreach (var param in bestCtor.Parameters)
+                    {
+                        // Get matching dest property based on parameter name
+                        var matchingDestProperty = mapping.DestinationType.GetMembers()
+                            .OfType<IPropertySymbol>()
+                            .FirstOrDefault(p => string.Equals(p.Name, param.Name, System.StringComparison.OrdinalIgnoreCase));
+                        
+                        if (matchingDestProperty != null)
+                        {
+                            propertiesSetViaConstructor.Add(matchingDestProperty.Name);
+                        }
+                    }
+                }
+            }
+
+            // Handle custom property mappings first (skip those already set by constructor)
             foreach (var propertyMapping in mapping.PropertyMappings)
             {
                 var sourceProperty = mapping.SourceType.GetMembers().OfType<IPropertySymbol>()
@@ -379,7 +468,8 @@ namespace Mappit.Generator
                     .FirstOrDefault(p => p.Name == propertyMapping.TargetName);
 
                 if (sourceProperty != null && targetProperty != null &&
-                    !targetProperty.IsWriteOnly && !sourceProperty.IsReadOnly)
+                    !targetProperty.IsWriteOnly && !sourceProperty.IsReadOnly &&
+                    !propertiesSetViaConstructor.Contains(targetProperty.Name))
                 {
                     // Handle enum mappings
                     if (sourceProperty.Type.TypeKind == TypeKind.Enum && targetProperty.Type.TypeKind == TypeKind.Enum)
@@ -412,6 +502,7 @@ namespace Mappit.Generator
                     .OfType<IPropertySymbol>()
                     .FirstOrDefault(p => p.Name == property.Name &&
                                      !customMappedTargetProps.Contains(p.Name) &&
+                                     !propertiesSetViaConstructor.Contains(p.Name) &&
                                      (p.Type.Equals(property.Type, SymbolEqualityComparer.Default) ||
                                       (property.Type.TypeKind == TypeKind.Enum && p.Type.TypeKind == TypeKind.Enum)));
 
@@ -438,6 +529,76 @@ namespace Mappit.Generator
             GenerateEnumMappingMethods(source, mapping);
 
             source.AppendLine("        }");
+        }
+
+        private static IMethodSymbol FindBestConstructorMatch(MappingTypeInfo mapping, List<IMethodSymbol> constructors)
+        {
+            // First try exact match by number of source properties
+            var sourceProperties = mapping.SourceType.GetMembers().OfType<IPropertySymbol>().ToList();
+            
+            foreach (var ctor in constructors)
+            {
+                int matchingParams = 0;
+                
+                foreach (var param in ctor.Parameters)
+                {
+                    // Try to find a source property that matches parameter name and type
+                    var matchingProp = FindMatchingSourceProperty(mapping, param);
+                    if (matchingProp != null)
+                    {
+                        matchingParams++;
+                    }
+                }
+                
+                // If all parameters can be matched, this is a good constructor choice
+                if (matchingParams == ctor.Parameters.Length)
+                {
+                    return ctor;
+                }
+            }
+            
+            // If no perfect match, return the constructor with the most matching parameters
+            return constructors
+                .OrderByDescending(c => c.Parameters.Count(p => FindMatchingSourceProperty(mapping, p) != null))
+                .FirstOrDefault();
+        }
+
+        private static IPropertySymbol FindMatchingSourceProperty(MappingTypeInfo mapping, IParameterSymbol parameter)
+        {
+            var sourceProperties = mapping.SourceType.GetMembers().OfType<IPropertySymbol>().ToList();
+            
+            // First try direct name match
+            var matchByName = sourceProperties.FirstOrDefault(p => 
+                string.Equals(p.Name, parameter.Name, System.StringComparison.OrdinalIgnoreCase) &&
+                (p.Type.Equals(parameter.Type, SymbolEqualityComparer.Default) ||
+                 (p.Type.TypeKind == TypeKind.Enum && parameter.Type.TypeKind == TypeKind.Enum)));
+                
+            if (matchByName != null)
+            {
+                return matchByName;
+            }
+            
+            // Check custom property mappings
+            foreach (var customMapping in mapping.PropertyMappings)
+            {
+                var sourceProperty = sourceProperties.FirstOrDefault(p => p.Name == customMapping.SourceName);
+                
+                if (sourceProperty != null)
+                {
+                    var targetProperty = mapping.DestinationType.GetMembers().OfType<IPropertySymbol>()
+                        .FirstOrDefault(p => p.Name == customMapping.TargetName);
+                    
+                    if (targetProperty != null && 
+                        string.Equals(targetProperty.Name, parameter.Name, System.StringComparison.OrdinalIgnoreCase) &&
+                        (targetProperty.Type.Equals(parameter.Type, SymbolEqualityComparer.Default) ||
+                         (targetProperty.Type.TypeKind == TypeKind.Enum && parameter.Type.TypeKind == TypeKind.Enum)))
+                    {
+                        return sourceProperty;
+                    }
+                }
+            }
+            
+            return null;
         }
 
         private static void GenerateEnumMappingMethods(StringBuilder source, MappingTypeInfo mapping)

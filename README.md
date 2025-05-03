@@ -30,6 +30,7 @@ var mapped = mapper.Map<FooRepresentation>(myfoo);
 * Enum mappings with compile-time validation
 * Custom property mappings 
 * Custom enum value mappings
+* Constructor initialization, including constructors that only cover some of the properties. Any remaining properties will be initialized via their setters.
 
 ## Property Mapping
 
