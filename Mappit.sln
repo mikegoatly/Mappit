@@ -1,15 +1,31 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.14.36025.13 d17.14
+VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{9E67369C-A03F-4256-9016-8F55FD9BC9FD}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "examples", "examples", "{27EDF922-02D9-40CF-ABE7-6078BE4E1F07}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mappit", "src\Mappit\Mappit.csproj", "{BE73470C-8FA8-B0FB-FFC6-3CF2F1C47340}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{087BEF28-3999-4181-B1B4-06A751FC36E3}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mappit.Generator", "src\Mappit.Generator\Mappit.Generator.csproj", "{E01C9F99-FB81-D1DE-F269-50930D65EA11}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mappit.Test", "test\Mappit.Test\Mappit.Test.csproj", "{560BD8A9-0848-4F94-A9BC-AE37429BB68F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mappit.Examples", "examples\Mappit.Examples\Mappit.Examples.csproj", "{C3DDE559-5F6F-12F0-A8F2-534CC4EB352D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mappit.Tests", "test\Mappit.Tests\Mappit.Tests.csproj", "{99D850E7-5A60-0320-CC22-5A84322192A0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mappit.Core", "src\Mappit.Core\Mappit.Core.csproj", "{76202E08-1B96-419E-9288-4D0C48BCDE1A}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{BA952197-A512-45BA-BFA2-6E7010582FA6}"
+	ProjectSection(SolutionItems) = preProject
+		.gitignore = .gitignore
+		Directory.Build.props = Directory.Build.props
+		LICENSE = LICENSE
+		README.md = README.md
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,19 +37,34 @@ Global
 		{BE73470C-8FA8-B0FB-FFC6-3CF2F1C47340}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BE73470C-8FA8-B0FB-FFC6-3CF2F1C47340}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BE73470C-8FA8-B0FB-FFC6-3CF2F1C47340}.Release|Any CPU.Build.0 = Release|Any CPU
-		{560BD8A9-0848-4F94-A9BC-AE37429BB68F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{560BD8A9-0848-4F94-A9BC-AE37429BB68F}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{560BD8A9-0848-4F94-A9BC-AE37429BB68F}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{560BD8A9-0848-4F94-A9BC-AE37429BB68F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E01C9F99-FB81-D1DE-F269-50930D65EA11}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E01C9F99-FB81-D1DE-F269-50930D65EA11}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E01C9F99-FB81-D1DE-F269-50930D65EA11}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E01C9F99-FB81-D1DE-F269-50930D65EA11}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C3DDE559-5F6F-12F0-A8F2-534CC4EB352D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C3DDE559-5F6F-12F0-A8F2-534CC4EB352D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C3DDE559-5F6F-12F0-A8F2-534CC4EB352D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C3DDE559-5F6F-12F0-A8F2-534CC4EB352D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{99D850E7-5A60-0320-CC22-5A84322192A0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{99D850E7-5A60-0320-CC22-5A84322192A0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{99D850E7-5A60-0320-CC22-5A84322192A0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{99D850E7-5A60-0320-CC22-5A84322192A0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{76202E08-1B96-419E-9288-4D0C48BCDE1A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{76202E08-1B96-419E-9288-4D0C48BCDE1A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{76202E08-1B96-419E-9288-4D0C48BCDE1A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{76202E08-1B96-419E-9288-4D0C48BCDE1A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{BE73470C-8FA8-B0FB-FFC6-3CF2F1C47340} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
-		{560BD8A9-0848-4F94-A9BC-AE37429BB68F} = {087BEF28-3999-4181-B1B4-06A751FC36E3}
+		{E01C9F99-FB81-D1DE-F269-50930D65EA11} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{C3DDE559-5F6F-12F0-A8F2-534CC4EB352D} = {27EDF922-02D9-40CF-ABE7-6078BE4E1F07}
+		{99D850E7-5A60-0320-CC22-5A84322192A0} = {9E67369C-A03F-4256-9016-8F55FD9BC9FD}
+		{76202E08-1B96-419E-9288-4D0C48BCDE1A} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {9E4625D3-5B71-471E-B4D1-A6C90DE5FF8C}
+		SolutionGuid = {B4B5E1C6-A2D9-4F1C-9E8F-F1CE9B573EF1}
 	EndGlobalSection
 EndGlobal

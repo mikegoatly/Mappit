@@ -1,0 +1,12 @@
+<Project>
+	<PropertyGroup>
+		<EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+		<AnalysisMode>AllEnabledByDefault</AnalysisMode>
+		<RunAnalyzersDuringBuild>true</RunAnalyzersDuringBuild>
+		<Authors>Mike Goatly</Authors>
+		<Company>Mike Goatly</Company>
+		<Copyright>Copyright Mike Goatly</Copyright>
+		<DebugType>embedded</DebugType>
+		<Nullable>enable</Nullable>
+	</PropertyGroup>
+</Project>
