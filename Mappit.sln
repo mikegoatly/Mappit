@@ -1,0 +1,39 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36025.13 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mappit", "src\Mappit\Mappit.csproj", "{BE73470C-8FA8-B0FB-FFC6-3CF2F1C47340}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{087BEF28-3999-4181-B1B4-06A751FC36E3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mappit.Test", "test\Mappit.Test\Mappit.Test.csproj", "{560BD8A9-0848-4F94-A9BC-AE37429BB68F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{BE73470C-8FA8-B0FB-FFC6-3CF2F1C47340}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BE73470C-8FA8-B0FB-FFC6-3CF2F1C47340}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BE73470C-8FA8-B0FB-FFC6-3CF2F1C47340}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BE73470C-8FA8-B0FB-FFC6-3CF2F1C47340}.Release|Any CPU.Build.0 = Release|Any CPU
+		{560BD8A9-0848-4F94-A9BC-AE37429BB68F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{560BD8A9-0848-4F94-A9BC-AE37429BB68F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{560BD8A9-0848-4F94-A9BC-AE37429BB68F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{560BD8A9-0848-4F94-A9BC-AE37429BB68F}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{BE73470C-8FA8-B0FB-FFC6-3CF2F1C47340} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{560BD8A9-0848-4F94-A9BC-AE37429BB68F} = {087BEF28-3999-4181-B1B4-06A751FC36E3}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {9E4625D3-5B71-471E-B4D1-A6C90DE5FF8C}
+	EndGlobalSection
+EndGlobal
