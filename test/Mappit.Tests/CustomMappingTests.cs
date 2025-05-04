@@ -114,13 +114,16 @@ namespace Mappit.Tests
         public string Name { get; set; }
     }
 
+    [Mappit]
     public partial class CustomMappingTestMapper : MapperBase
     {
-        [MapProperty(nameof(SourceModel.CreatedOn), nameof(TargetModel.DateCreated))]
-        [MapEnumValue(nameof(SourceStatus.Active), nameof(TargetStatus.Enabled))]
-        [MapEnumValue(nameof(SourceStatus.Inactive), nameof(TargetStatus.Disabled))]
-        [MapEnumValue(nameof(SourceStatus.Pending), nameof(TargetStatus.AwaitingConfirmation))]
+        [MapMember(nameof(SourceModel.CreatedOn), nameof(TargetModel.DateCreated))]
         private TypeMapping<SourceModel, TargetModel> sourceToTarget;
+
+        [MapMember(nameof(SourceStatus.Active), nameof(TargetStatus.Enabled))]
+        [MapMember(nameof(SourceStatus.Inactive), nameof(TargetStatus.Disabled))]
+        [MapMember(nameof(SourceStatus.Pending), nameof(TargetStatus.AwaitingConfirmation))]
+        private TypeMapping<SourceStatus, TargetStatus> sourceStatus;
 
         protected override void InitializeCustomMappings()
         {

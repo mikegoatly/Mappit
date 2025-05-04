@@ -9,9 +9,16 @@ namespace Mappit.Generator
     /// </summary>
     internal sealed class MapperClassInfo
     {
-        public string ClassName { get; set; }
-        public string Namespace { get; set; }
-        public INamedTypeSymbol Symbol { get; set; }
-        public List<MappingTypeInfo> Mappings { get; } = new List<MappingTypeInfo>();
+        public MapperClassInfo(INamedTypeSymbol symbol)
+        {
+            ClassName = symbol.Name;
+            Namespace = symbol.ContainingNamespace.ToDisplayString();
+            Symbol = symbol;
+        }
+
+        public string ClassName { get; }
+        public string Namespace { get; }
+        public INamedTypeSymbol Symbol { get; }
+        public List<MappingTypeInfo> Mappings { get; } = new();
     }
 }

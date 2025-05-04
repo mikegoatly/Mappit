@@ -191,7 +191,7 @@ namespace Mappit.Tests
         }
     }
 
-    // Test mapper class
+    [Mappit]
     public partial class ConstructorTestMapper : MapperBase
     {
         private readonly TypeMapping<SourceWithProperties, TargetWithConstructor>  _sourceToTargetMapping;
@@ -202,9 +202,9 @@ namespace Mappit.Tests
 
         private readonly TypeMapping<SourceWithLimitedProperties,TargetWithRequiredConstructor>  _limitedPropsMapping;
 
-        [MapProperty("Identifier", "Id")]
-        [MapProperty("Title", "Name")]
-        [MapProperty("Text", "Description")]
+        [MapMember("Identifier", "Id")]
+        [MapMember("Title", "Name")]
+        [MapMember("Text", "Description")]
         private readonly TypeMapping<SourceWithCustomProperties, TargetWithConstructor>  _customPropsMapping;
     }
 }

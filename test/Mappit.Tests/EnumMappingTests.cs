@@ -113,7 +113,7 @@ namespace Mappit.Tests
         public DisplayColor SecondaryColor { get; set; }
     }
 
-    // Update the TestMapper to include enum mappings
+    [Mappit]
     public partial class TestMapperWithEnums : MapperBase
     {
         private TypeMapping<ModelWithEnum, DtoWithEnum> modelToDto;

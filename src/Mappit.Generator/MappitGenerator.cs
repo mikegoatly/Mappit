@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -10,148 +11,28 @@ using Microsoft.CodeAnalysis.Text;
 
 namespace Mappit.Generator
 {
+    internal static class Attributes
+    {
+        public const string MappitAttribute = "Mappit.MappitAttribute";
+    }
+
     [Generator]
-    public class MappitGenerator : IIncrementalGenerator
+    public partial class MappitGenerator : IIncrementalGenerator
     {
         public void Initialize(IncrementalGeneratorInitializationContext context)
         {
-            // Register syntaxes of interest - in this case, class declarations that are partial
             var classDeclarations = context.SyntaxProvider
-                .CreateSyntaxProvider(
-                    predicate: static (s, _) => s is ClassDeclarationSyntax c && c.Modifiers.Any(m => m.IsKind(SyntaxKind.PartialKeyword)),
+                .ForAttributeWithMetadataName(
+                    Attributes.MappitAttribute,
+                    // Search for partial class declarations
+                    predicate: static (s, _) => s is ClassDeclarationSyntax c && 
+                        c.Modifiers.Any(m => m.IsKind(SyntaxKind.PartialKeyword)),
+                    // The first transform grabs all the 
                     transform: static (ctx, _) => GetMapperClassInfo(ctx))
                 .Where(static m => m != null);
 
             // Register the output generator
-            context.RegisterSourceOutput(classDeclarations, static (spc, mapper) => GenerateMapper(spc, mapper));
-        }
-
-        private static MapperClassInfo? GetMapperClassInfo(GeneratorSyntaxContext context)
-        {
-            var classDeclarationSyntax = (ClassDeclarationSyntax)context.Node;
-            var semanticModel = context.SemanticModel;
-            var classSymbol = semanticModel.GetDeclaredSymbol(classDeclarationSyntax);
-
-            // Check if the class inherits from MapperBase
-            if (classSymbol?.BaseType?.Name != "MapperBase")
-            {
-                return null;
-            }
-
-            var mapperClass = new MapperClassInfo
-            {
-                ClassName = classSymbol.Name,
-                Namespace = classSymbol.ContainingNamespace.ToDisplayString(),
-                Symbol = classSymbol
-            };
-
-            // Find fields with TypeMapping<TSource, TDestination> type
-            foreach (var member in classSymbol.GetMembers())
-            {
-                if (member is IFieldSymbol fieldSymbol &&
-                    fieldSymbol.Type is INamedTypeSymbol namedType &&
-                    namedType.IsGenericType &&
-                    namedType.Name == "TypeMapping" &&
-                    namedType.TypeArguments.Length == 2 &&
-                    namedType.TypeArguments[0] is ITypeSymbol sourceType &&
-                    namedType.TypeArguments[1] is ITypeSymbol destType)
-                {
-                    // Find the field declaration in the syntax tree
-                    var fieldDeclarations = classDeclarationSyntax.DescendantNodes()
-                        .OfType<FieldDeclarationSyntax>()
-                        .Where(f => f.Declaration.Variables.Any(v => v.Identifier.Text == fieldSymbol.Name))
-                        .ToList();
-
-                    if (fieldDeclarations.Count == 0)
-                    {
-                        continue;
-                    }
-
-                    var fieldDeclaration = fieldDeclarations.First();
-                    var mappingInfo = new MappingTypeInfo(fieldSymbol.Name, sourceType, destType);
-
-                    // Find any custom enum mappings
-                    var enumMappingAttributes = fieldSymbol.GetAttributes()
-                        .Where(a => a.AttributeClass?.Name == "MapEnumValueAttribute")
-                        .ToList();
-
-                    // Find all MapEnumValue attributes in the syntax tree
-                    var enumAttributeSyntaxes = fieldDeclaration.AttributeLists
-                        .SelectMany(al => al.Attributes)
-                        .Where(a => a.Name.ToString() == "MapEnumValue" && a.ArgumentList?.Arguments.Count == 2)
-                        .ToList();
-
-                    // Match semantic attributes with syntax attributes based on their argument values
-                    for (int i = 0; i < enumMappingAttributes.Count && i < enumAttributeSyntaxes.Count; i++)
-                    {
-                        var attr = enumMappingAttributes[i];
-                        var sourceValueName = attr.ConstructorArguments[0].Value as string;
-                        var targetValueName = attr.ConstructorArguments[1].Value as string;
-
-                        // Find the corresponding attribute syntax
-                        var matchingSyntax = enumAttributeSyntaxes.FirstOrDefault(a =>
-                            GetArgumentStringValue(a.ArgumentList!.Arguments[0], semanticModel) == sourceValueName &&
-                            GetArgumentStringValue(a.ArgumentList!.Arguments[1], semanticModel) == targetValueName);
-
-                        var attrSyntax = matchingSyntax ?? enumAttributeSyntaxes[i];
-
-                        mappingInfo.EnumMappings.Add(
-                            new MappingMemberInfo(sourceValueName, targetValueName, attrSyntax));
-                    }
-
-                    // Find any custom property mappings
-                    var propertyMappingAttributes = fieldSymbol.GetAttributes()
-                        .Where(a => a.AttributeClass?.Name == "MapPropertyAttribute")
-                        .ToList();
-
-                    // Find all MapProperty attributes in the syntax tree
-                    var propAttributeSyntaxes = fieldDeclaration.AttributeLists
-                        .SelectMany(al => al.Attributes)
-                        .Where(a => a.Name.ToString() == "MapProperty" && a.ArgumentList?.Arguments.Count == 2)
-                        .ToList();
-
-                    // Match semantic attributes with syntax attributes based on their argument values
-                    for (int i = 0; i < propertyMappingAttributes.Count && i < propAttributeSyntaxes.Count; i++)
-                    {
-                        var attr = propertyMappingAttributes[i];
-                        var sourcePropertyName = attr.ConstructorArguments[0].Value as string;
-                        var targetPropertyName = attr.ConstructorArguments[1].Value as string;
-
-                        // Find the corresponding attribute syntax
-                        var matchingSyntax = propAttributeSyntaxes.FirstOrDefault(a =>
-                            GetArgumentStringValue(a.ArgumentList!.Arguments[0], semanticModel) == sourcePropertyName &&
-                            GetArgumentStringValue(a.ArgumentList!.Arguments[1], semanticModel) == targetPropertyName);
-
-                        var attrSyntax = matchingSyntax ?? propAttributeSyntaxes[i];
-
-                        mappingInfo.PropertyMappings.Add(
-                            new MappingMemberInfo(sourcePropertyName, targetPropertyName, attrSyntax));
-                    }
-
-                    mapperClass.Mappings.Add(mappingInfo);
-                }
-            }
-
-            return mapperClass.Mappings.Count > 0 ? mapperClass : null;
-        }
-
-        private static string GetArgumentStringValue(AttributeArgumentSyntax argument, SemanticModel semanticModel)
-        {
-            // If it's a simple literal, just return its string representation
-            if (argument.Expression is LiteralExpressionSyntax literal)
-            {
-                return literal.Token.ValueText;
-            }
-
-            // Otherwise, try to get the constant value from semantic model
-            var constantValue = semanticModel.GetConstantValue(argument.Expression);
-            if (constantValue.HasValue && constantValue.Value is string stringValue)
-            {
-                return stringValue;
-            }
-
-            // If we can't determine the value, return the expression text as a fallback
-            return argument.Expression.ToString();
+            context.RegisterSourceOutput(classDeclarations, GenerateMapper);
         }
 
         private static void GenerateMapper(SourceProductionContext context, MapperClassInfo? mapperClass)
@@ -161,21 +42,7 @@ namespace Mappit.Generator
                 return;
             }
 
-            // Validate mappings
-            foreach (var mapping in mapperClass.Mappings)
-            {
-                // Validate enum mappings
-                foreach (var enumMapping in mapping.EnumMappings)
-                {
-                    ValidateEnumMapping(context, mapping, enumMapping);
-                }
-
-                // Validate property mappings
-                foreach (var propertyMapping in mapping.PropertyMappings)
-                {
-                    ValidatePropertyMapping(context, mapping, propertyMapping);
-                }
-            }
+            ValidateMappings(context, mapperClass);
 
             var source = new StringBuilder();
 
@@ -214,141 +81,6 @@ namespace Mappit.Generator
 
             // Add the source code to the compilation
             context.AddSource($"{mapperClass.ClassName}.g.cs", SourceText.From(source.ToString(), Encoding.UTF8));
-        }
-
-        private static void ValidateEnumMapping(SourceProductionContext context, MappingTypeInfo mapping, MappingMemberInfo enumMapping)
-        {
-            bool sourceValueExists = false;
-            bool targetValueExists = false;
-
-            // Find all enum types in the source type
-            foreach (var member in mapping.SourceType.GetMembers().OfType<IPropertySymbol>()
-                .Where(p => p.Type.TypeKind == TypeKind.Enum))
-            {
-                var enumType = member.Type as INamedTypeSymbol;
-                if (enumType != null)
-                {
-                    foreach (var enumMember in enumType.GetMembers().OfType<IFieldSymbol>()
-                        .Where(f => f.IsStatic && f.IsConst || f.IsReadOnly))
-                    {
-                        if (enumMember.Name == enumMapping.SourceName)
-                        {
-                            sourceValueExists = true;
-                            break;
-                        }
-                    }
-                }
-
-                if (sourceValueExists)
-                    break;
-            }
-
-            // Find all enum types in the destination type
-            foreach (var member in mapping.DestinationType.GetMembers().OfType<IPropertySymbol>()
-                .Where(p => p.Type.TypeKind == TypeKind.Enum))
-            {
-                var enumType = member.Type as INamedTypeSymbol;
-                if (enumType != null)
-                {
-                    foreach (var enumMember in enumType.GetMembers().OfType<IFieldSymbol>()
-                        .Where(f => f.IsStatic && f.IsConst || f.IsReadOnly))
-                    {
-                        if (enumMember.Name == enumMapping.TargetName)
-                        {
-                            targetValueExists = true;
-                            break;
-                        }
-                    }
-                }
-
-                if (targetValueExists)
-                    break;
-            }
-
-            // Report diagnostics if values don't exist
-            if (!sourceValueExists)
-            {
-                ReportDiagnostic(context,
-                    $"Source enum value '{enumMapping.SourceName}' not found in any enum property of type '{mapping.SourceType.Name}'",
-                    enumMapping.SourceArgument);
-            }
-
-            if (!targetValueExists)
-            {
-                ReportDiagnostic(context,
-                    $"Target enum value '{enumMapping.TargetName}' not found in any enum property of type '{mapping.DestinationType.Name}'",
-                    enumMapping.TargetArgument);
-            }
-        }
-
-        private static void ValidatePropertyMapping(SourceProductionContext context, MappingTypeInfo mapping, MappingMemberInfo propertyMapping)
-        {
-            var sourceProperty = mapping.SourceType.GetMembers().OfType<IPropertySymbol>()
-                .FirstOrDefault(p => p.Name == propertyMapping.SourceName);
-
-            var targetProperty = mapping.DestinationType.GetMembers().OfType<IPropertySymbol>()
-                .FirstOrDefault(p => p.Name == propertyMapping.TargetName);
-
-            // Report diagnostics if properties don't exist
-            if (sourceProperty == null)
-            {
-                ReportDiagnostic(context,
-                    $"Source property '{propertyMapping.SourceName}' not found in type '{mapping.SourceType.Name}'",
-                    propertyMapping.SourceArgument);
-            }
-
-            if (targetProperty == null)
-            {
-                ReportDiagnostic(context,
-                    $"Target property '{propertyMapping.TargetName}' not found in type '{mapping.DestinationType.Name}'",
-                    propertyMapping.TargetArgument);
-            }
-
-            // Check if property types are compatible
-            if (sourceProperty != null && targetProperty != null)
-            {
-                bool isCompatible = false;
-
-                // Direct type compatibility
-                if (sourceProperty.Type.Equals(targetProperty.Type, SymbolEqualityComparer.Default))
-                {
-                    isCompatible = true;
-                }
-                // Both are enums
-                else if (sourceProperty.Type.TypeKind == TypeKind.Enum && targetProperty.Type.TypeKind == TypeKind.Enum)
-                {
-                    isCompatible = true;
-                }
-
-                if (!isCompatible && !targetProperty.IsWriteOnly && !sourceProperty.IsReadOnly)
-                {
-                    ReportDiagnostic(context,
-                        $"Incompatible types for property mapping: '{sourceProperty.Type.Name}' to '{targetProperty.Type.Name}'",
-                        propertyMapping.AttributeSyntaxNode);
-                }
-            }
-        }
-
-        private static void ReportDiagnostic(SourceProductionContext context, string message, SyntaxNode node)
-        {
-            var descriptor = new DiagnosticDescriptor(
-                id: "MAPPIT001",
-                title: "Mappit Mapping Error",
-                messageFormat: message,
-                category: "Mappit",
-                defaultSeverity: DiagnosticSeverity.Error,
-                isEnabledByDefault: true);
-
-            if (node != null)
-            {
-                // Get the most precise span possible for better error location reporting
-                var location = Location.Create(node.SyntaxTree, node.Span);
-                context.ReportDiagnostic(Diagnostic.Create(descriptor, location));
-            }
-            else
-            {
-                context.ReportDiagnostic(Diagnostic.Create(descriptor, Location.None));
-            }
         }
 
         private static void GenerateMappingClass(StringBuilder source, MappingTypeInfo mapping)
@@ -580,7 +312,7 @@ namespace Mappit.Generator
                 .FirstOrDefault();
         }
 
-        private static IPropertySymbol FindMatchingSourceProperty(MappingTypeInfo mapping, IParameterSymbol parameter)
+        private static IPropertySymbol? FindMatchingSourceProperty(MappingTypeInfo mapping, IParameterSymbol parameter)
         {
             var sourceProperties = mapping.SourceType.GetMembers().OfType<IPropertySymbol>().ToList();
 

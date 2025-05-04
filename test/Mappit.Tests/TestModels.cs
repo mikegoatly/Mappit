@@ -37,6 +37,7 @@ namespace Mappit.Tests
         public decimal Salary { get; set; }
     }
 
+    [Mappit]
     public partial class TestMapper : MapperBase
     {
         private TypeMapping<Person, PersonDto> personToDto;

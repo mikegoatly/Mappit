@@ -9,7 +9,8 @@ The library errs on the side of correctness, so if types can't be fully mapped y
 ## Getting started
 
 ``` csharp
-public partial class Mapper : MappingBase
+[Mappit]
+public partial class Mapper : MapperBase
 {
     private TypeMapping<Foo, FooRepresentation> foo;
 }
@@ -40,9 +41,10 @@ By default, Mappit maps properties with the same name and type. Properties that 
 If you need to map properties with different names, you can use the `MapProperty` attribute:
 
 ```csharp
-public partial class Mapper : MappingBase
+[Mappit]
+public partial class Mapper : MapperBase
 {
-    [MapProperty(nameof(Foo.SourceProp), nameof(FooRepresentation.TargetProp))]
+    [MapMember(nameof(Foo.SourceProp), nameof(FooRepresentation.TargetProp))]
     private TypeMapping<Foo, FooRepresentation> foo;
 }
 ```
@@ -72,7 +74,8 @@ public enum TargetStatus {
     AwaitingConfirmation = 2
 }
 
-public partial class Mapper : MappingBase
+[Mappit]
+public partial class Mapper : MapperBase
 {
     [MapEnumValue(nameof(SourceStatus.Active), nameof(TargetStatus.Enabled))]
     [MapEnumValue(nameof(SourceStatus.Inactive), nameof(TargetStatus.Disabled))]
@@ -91,6 +94,7 @@ All enum values are validated at compile time, ensuring correctness:
 If you run into limitations for a certain type, you can always define your own `TypeMapping`:
 
 ```csharp
+[Mappit]
 public partial class CustomMappingTestMapper : MapperBase
 {
     protected override void InitializeCustomMappings()
