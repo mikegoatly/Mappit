@@ -55,31 +55,6 @@ namespace Mappit.Tests
             Assert.Equal(Color.Red, model.PrimaryColor);
             Assert.Equal(Color.Blue, model.SecondaryColor);
         }
-
-        [Fact]
-        public void Map_EnumOutOfRange_ShouldConvertBetweenEnums()
-        {
-            // Arrange - Using a value that exists only in the destination enum
-            var dto = new DtoWithEnum
-            {
-                Id = 3,
-                Name = "Enum Out of Range Test",
-                PrimaryColor = DisplayColor.Yellow // This doesn't exist in Color enum
-            };
-
-            // Act
-            var model = _mapper.Map<ModelWithEnum>(dto);
-            
-            // Act again - Map back to DTO
-            var mappedBackDto = _mapper.Map<DtoWithEnum>(model);
-
-            // Assert
-            // When casting to an enum that doesn't have the value, it's preserved as the integer value
-            Assert.Equal(3, (int)model.PrimaryColor); // Yellow = 3
-            
-            // When mapping back, we should get the original enum value
-            Assert.Equal(DisplayColor.Yellow, mappedBackDto.PrimaryColor);
-        }
     }
 
     public enum Color
@@ -94,7 +69,6 @@ namespace Mappit.Tests
         Red = 0,
         Green = 1,
         Blue = 2,
-        Yellow = 3
     }
 
     public class ModelWithEnum
@@ -116,8 +90,12 @@ namespace Mappit.Tests
     [Mappit]
     public partial class TestMapperWithEnums : MapperBase
     {
-        private TypeMapping<ModelWithEnum, DtoWithEnum> modelToDto;
+        TypeMapping<ModelWithEnum, DtoWithEnum> modelToDto;
 
-        private TypeMapping<DtoWithEnum, ModelWithEnum> dtoToModel;
+        TypeMapping<DtoWithEnum, ModelWithEnum> dtoToModel;
+
+        TypeMapping<DisplayColor, Color> displayColorToColor;
+
+        TypeMapping<Color, DisplayColor> colorToDisplayColor;
     }
 }

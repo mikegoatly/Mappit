@@ -3,6 +3,8 @@ using Xunit;
 
 namespace Mappit.Tests
 {
+
+
     public class BasicMappingTests
     {
         private readonly IMapper _mapper;

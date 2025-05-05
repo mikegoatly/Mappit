@@ -80,7 +80,8 @@ namespace Mappit.Generator
                 var sourcePropertyName = GetArgumentStringValue(attrSyntax.ArgumentList!.Arguments[0], semanticModel);
                 var targetPropertyName = GetArgumentStringValue(attrSyntax.ArgumentList!.Arguments[1], semanticModel);
 
-                mappingInfo.PropertyMappings.Add(
+                mappingInfo.MemberMappings.Add(
+                    sourcePropertyName,
                     new MappingMemberInfo(sourcePropertyName, targetPropertyName, attrSyntax));
             }
 

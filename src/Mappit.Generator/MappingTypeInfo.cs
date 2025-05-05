@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 using Microsoft.CodeAnalysis;
@@ -42,8 +43,11 @@ namespace Mappit.Generator
         public string FieldName { get; }
         public ITypeSymbol SourceType { get; }
         public ITypeSymbol DestinationType { get; }
-        public FieldDeclarationSyntax FieldDeclaration { get; }
-        public List<MappingMemberInfo> EnumMappings { get; } = new();
-        public List<MappingMemberInfo> PropertyMappings { get; } = new();
+        public SyntaxNode FieldDeclaration { get; }
+
+        /// <summary>
+        /// The member mappings for the source and destination types. Keyed by the source member name.
+        /// </summary>
+        public Dictionary<string, MappingMemberInfo> MemberMappings { get; } = new();
     }
 }

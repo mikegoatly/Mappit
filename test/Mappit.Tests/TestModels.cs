@@ -16,6 +16,7 @@ namespace Mappit.Tests
         public required string FirstName { get; set; }
         public required string LastName { get; set; }
         public DateTime BirthDate { get; set; }
+        public int Age { get; set; }
         public required string Email { get; set; }
     }
 
@@ -43,7 +44,7 @@ namespace Mappit.Tests
         private TypeMapping<Person, PersonDto> personToDto;
 
         private TypeMapping<PersonDto, Person> dtoToPerson;
-
+        
         private TypeMapping<Employee, EmployeeDto> employeeToDto;
     }
 }

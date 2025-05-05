@@ -94,7 +94,7 @@ namespace Mappit
             if (this._mappings.TryGetValue(sourceType, out var destMappings) &&
                 destMappings.TryGetValue(destinationType, out var mapping))
             {
-                return mapping.Map(source);
+                return mapping.Map(this, source);
             }
 
             throw new InvalidOperationException(

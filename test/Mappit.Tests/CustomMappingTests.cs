@@ -30,8 +30,10 @@ namespace Mappit.Tests
 
             // Assert
             Assert.Equal(source.Id, target.Id);
-            // Name property wasn't mapped, should be default
-            Assert.Null(target.Name);
+            
+            Assert.Equal(source.FirstName, target.FirstName);
+            Assert.Equal(source.LastName, target.LastName);
+
             // Custom enum mapping
             Assert.Equal(TargetStatus.Enabled, target.Status);
             // Custom property mapping
@@ -104,7 +106,8 @@ namespace Mappit.Tests
     public class TargetModel
     {
         public int Id { get; set; }
-        public string Name { get; set; } 
+        public string FirstName { get; set; }
+        public string LastName { get; set; }
         public TargetStatus Status { get; set; }
         public DateTime DateCreated { get; set; }
     }
@@ -132,7 +135,7 @@ namespace Mappit.Tests
 
         private class WeirdMapping : TypeMapping<WeirdModel, WeirdModel>
         {
-            public override WeirdModel Map(WeirdModel source)
+            public override WeirdModel Map(IMapper mapper, WeirdModel source)
             {
                 return new WeirdModel { Name = new string([.. source.Name.Reverse()]) };
             }

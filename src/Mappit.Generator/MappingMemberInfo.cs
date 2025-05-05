@@ -1,5 +1,7 @@
 using System;
+using System.Diagnostics;
 
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Mappit.Generator
@@ -9,29 +11,44 @@ namespace Mappit.Generator
     /// </summary>
     internal sealed class MappingMemberInfo
     {
-        public MappingMemberInfo(string? sourceName, string? targetName, AttributeSyntax attributeSyntaxNode)
+        public MappingMemberInfo(string sourceName, string targetName, AttributeSyntax attributeSyntaxNode)
         {
-            if (string.IsNullOrEmpty(sourceName))
-            {
-                throw new ArgumentException("Source name cannot be null or empty.", nameof(sourceName));
-            }
+            SourceName = sourceName;
+            TargetName = targetName;
+            SyntaxNode = attributeSyntaxNode;
 
-            if (string.IsNullOrEmpty(targetName))
-            {
-                throw new ArgumentException("Target name cannot be null or empty.", nameof(targetName));
-            }
-
-            SourceName = sourceName!;
-            TargetName = targetName!;
-            AttributeSyntaxNode = attributeSyntaxNode;
             SourceArgument = attributeSyntaxNode.ArgumentList!.Arguments[0];
             TargetArgument = attributeSyntaxNode.ArgumentList!.Arguments[1];
         }
-        
+
+        public MappingMemberInfo(string sourceName, string targetName, SyntaxNode syntaxNode)
+        {
+            SourceName = sourceName!;
+            TargetName = targetName!;
+            SyntaxNode = syntaxNode;
+            SourceArgument = syntaxNode;
+            TargetArgument = syntaxNode;
+        }
+
         public string SourceName { get; }
         public string TargetName { get; }
-        public AttributeSyntax AttributeSyntaxNode { get; }
-        public AttributeArgumentSyntax SourceArgument { get; }
-        public AttributeArgumentSyntax TargetArgument { get; }
+
+        /// <summary>
+        /// The main syntax node associated to this mapping - this may be an attribute containing a custom
+        /// mapping, or the property itself if its for an implicit mapping where property names match.
+        /// </summary>
+        public SyntaxNode SyntaxNode { get; }
+
+        /// <summary>
+        /// The syntax node associated to the source mapping. For implicit mappings this is the same
+        /// as <see cref="SyntaxNode"/>.
+        /// </summary>
+        public SyntaxNode SourceArgument { get; }
+
+        /// <summary>
+        /// The syntax node associated to the target mapping. For implicit mappings this is the same
+        /// as <see cref="SyntaxNode"/>.
+        /// </summary>
+        public SyntaxNode TargetArgument { get; }
     }
 }

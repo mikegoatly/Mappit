@@ -12,7 +12,7 @@ The library errs on the side of correctness, so if types can't be fully mapped y
 [Mappit]
 public partial class Mapper : MapperBase
 {
-    private TypeMapping<Foo, FooRepresentation> foo;
+    TypeMapping<Foo, FooRepresentation> foo;
 }
 ```
 
@@ -45,7 +45,7 @@ If you need to map properties with different names, you can use the `MapProperty
 public partial class Mapper : MapperBase
 {
     [MapMember(nameof(Foo.SourceProp), nameof(FooRepresentation.TargetProp))]
-    private TypeMapping<Foo, FooRepresentation> foo;
+    TypeMapping<Foo, FooRepresentation> foo;
 }
 ```
 
@@ -59,7 +59,7 @@ Enums with the same name and compatible values are mapped automatically. For enu
 
 ### Custom Enum Mapping
 
-For enums with different values, you can define custom mappings using the `MapEnumValue` attribute:
+For enums with different values, you can define custom mappings using the `MapMember` attribute:
 
 ```csharp
 public enum SourceStatus { 
@@ -77,10 +77,10 @@ public enum TargetStatus {
 [Mappit]
 public partial class Mapper : MapperBase
 {
-    [MapEnumValue(nameof(SourceStatus.Active), nameof(TargetStatus.Enabled))]
-    [MapEnumValue(nameof(SourceStatus.Inactive), nameof(TargetStatus.Disabled))]
-    [MapEnumValue(nameof(SourceStatus.Pending), nameof(TargetStatus.AwaitingConfirmation))]
-    private TypeMapping<SourceModel, TargetModel> sourceToTarget;
+    [MapMember(nameof(SourceStatus.Active), nameof(TargetStatus.Enabled))]
+    [MapMember(nameof(SourceStatus.Inactive), nameof(TargetStatus.Disabled))]
+    [MapMember(nameof(SourceStatus.Pending), nameof(TargetStatus.AwaitingConfirmation))]
+    TypeMapping<SourceStatus, TargetStatus> sourceToTarget;
 }
 ```
 
@@ -102,7 +102,7 @@ public partial class CustomMappingTestMapper : MapperBase
         RegisterMapping(new WeirdMapping());
     }
 
-    private class WeirdMapping : TypeMapping<WeirdModel, WeirdOtherModel>
+    class WeirdMapping : TypeMapping<WeirdModel, WeirdOtherModel>
     {
         public override WeirdModel Map(WeirdModel source)
         {
@@ -111,6 +111,10 @@ public partial class CustomMappingTestMapper : MapperBase
     }
 }
 ```
+
+## Known limitations
+
+* Classes containing properties with properties differing only by case are not supported.
 
 ## Compile-time Safety
 
@@ -126,10 +130,26 @@ Mappit focuses on correctness through compile-time validation:
 1. You define mappings as generic fields
 2. The source generator analyzes your code at compile time
 3. It generates mapping implementations based on your definitions
-4. The generated code handles the actual property mappings
 
 The source generator approach means:
 - No reflection at runtime for better performance
 - No reliance on convention over configuration
 - Explicit mapping definitions with compile-time checking
 - Clear error messages attached to the exact location of issues
+
+High level source generation steps:
+
+1. 🔍 Check for class decorated with `[Mappit]` attribute
+2. 🗺️ Find all fields of type `TypeMapping<,>` in the class and their `MapMember` custom mappings
+3. ✅ Validate the mappings and identify the implicitly mapped properties as well as any constructor parameters
+4. 📝 Generate the mapping code
+
+## Todo
+
+* Opt in to missing target members
+* Opt in to reverse mappings
+* Support for collections and dictionaries (IEnumerable, IList, etc.)
+* Support for nullable types (or at least tests for them)
+* Better placeholders to hold mappings - maybe partial private class definitions? (Would save on field allocation space)
+* Remove need for always deriving from MapperBase - generate base class with all the logic in it
+* Recursion handling

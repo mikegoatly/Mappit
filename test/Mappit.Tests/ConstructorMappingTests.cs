@@ -1,4 +1,5 @@
 using System;
+
 using Xunit;
 
 namespace Mappit.Tests
@@ -52,7 +53,7 @@ namespace Mappit.Tests
             // These properties should be set via constructor
             Assert.Equal(source.Id, result.Id);
             Assert.Equal(source.Name, result.Name);
-            
+
             // These properties should be set via property setters
             Assert.Equal(source.Description, result.Description);
             Assert.Equal(source.CreatedDate, result.CreatedDate);
@@ -95,7 +96,6 @@ namespace Mappit.Tests
             // Assert
             Assert.Equal(source.Id, result.Id);
             Assert.Equal(source.Name, result.Name);
-            Assert.Null(result.Description); // Should be null as not provided by source
         }
 
         [Fact]
@@ -128,6 +128,22 @@ namespace Mappit.Tests
         public bool IsActive { get; set; }
     }
 
+    public class TargetWithConstructor
+    {
+        public TargetWithConstructor(int id, string name, string description)
+        {
+            Id = id;
+            Name = name;
+            Description = description;
+        }
+
+        public int Id { get; }
+        public string Name { get; }
+        public string Description { get; }
+        public DateTime CreatedDate { get; set; }
+        public bool IsActive { get; set; }
+    }
+
     public class SourceWithDifferentCasing
     {
         public int id { get; set; }
@@ -146,20 +162,6 @@ namespace Mappit.Tests
         public int Identifier { get; set; }
         public string Title { get; set; }
         public string Text { get; set; }
-    }
-
-    public class TargetWithConstructor
-    {
-        public int Id { get; }
-        public string Name { get; }
-        public string Description { get; }
-
-        public TargetWithConstructor(int id, string name, string description)
-        {
-            Id = id;
-            Name = name;
-            Description = description;
-        }
     }
 
     public class TargetWithMixedInitialization
@@ -181,30 +183,28 @@ namespace Mappit.Tests
     {
         public int Id { get; }
         public string Name { get; }
-        public string Description { get; }
-
-        public TargetWithRequiredConstructor(int id, string name, string description = null)
+        
+        public TargetWithRequiredConstructor(int id, string name)
         {
             Id = id;
             Name = name;
-            Description = description;
         }
     }
 
     [Mappit]
     public partial class ConstructorTestMapper : MapperBase
     {
-        private readonly TypeMapping<SourceWithProperties, TargetWithConstructor>  _sourceToTargetMapping;
+        private readonly TypeMapping<SourceWithProperties, TargetWithConstructor> _sourceToTargetMapping;
 
-        private readonly TypeMapping<SourceWithProperties,TargetWithMixedInitialization>  _sourceToMixedMapping;
+        private readonly TypeMapping<SourceWithProperties, TargetWithMixedInitialization> _sourceToMixedMapping;
 
-        private readonly TypeMapping<SourceWithDifferentCasing,TargetWithConstructor>  _casingTestMapping;
+        private readonly TypeMapping<SourceWithDifferentCasing, TargetWithConstructor> _casingTestMapping;
 
-        private readonly TypeMapping<SourceWithLimitedProperties,TargetWithRequiredConstructor>  _limitedPropsMapping;
+        private readonly TypeMapping<SourceWithLimitedProperties, TargetWithRequiredConstructor> _limitedPropsMapping;
 
         [MapMember("Identifier", "Id")]
         [MapMember("Title", "Name")]
         [MapMember("Text", "Description")]
-        private readonly TypeMapping<SourceWithCustomProperties, TargetWithConstructor>  _customPropsMapping;
+        private readonly TypeMapping<SourceWithCustomProperties, TargetWithConstructor> _customPropsMapping;
     }
 }
