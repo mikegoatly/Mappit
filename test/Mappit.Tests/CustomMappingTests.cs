@@ -118,7 +118,7 @@ namespace Mappit.Tests
     }
 
     [Mappit]
-    public partial class CustomMappingTestMapper : MapperBase
+    public partial class CustomMappingTestMapper
     {
         [MapMember(nameof(SourceModel.CreatedOn), nameof(TargetModel.DateCreated))]
         private TypeMapping<SourceModel, TargetModel> sourceToTarget;
@@ -128,7 +128,7 @@ namespace Mappit.Tests
         [MapMember(nameof(SourceStatus.Pending), nameof(TargetStatus.AwaitingConfirmation))]
         private TypeMapping<SourceStatus, TargetStatus> sourceStatus;
 
-        protected override void InitializeCustomMappings()
+        partial void InitializeCustomMappings()
         {
             RegisterMapping(new WeirdMapping());
         }

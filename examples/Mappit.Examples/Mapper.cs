@@ -6,7 +6,7 @@ namespace Mappit.Examples
     /// Example mapper that demonstrates how to use Mappit
     /// </summary>
     [Mappit]
-    public partial class Mapper : MapperBase
+    public partial class Mapper
     {
         private TypeMapping<Foo, FooRepresentation> foo;
     }

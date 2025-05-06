@@ -1,6 +1,8 @@
 using System.Linq;
 using System.Text;
 
+using Mappit.Generator.CodeSnippets;
+
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -8,6 +10,7 @@ using Microsoft.CodeAnalysis.Text;
 
 namespace Mappit.Generator
 {
+
     internal static class Attributes
     {
         public const string MappitAttribute = "Mappit.MappitAttribute";
@@ -48,24 +51,34 @@ namespace Mappit.Generator
             source.AppendLine("{");
 
             // Generate partial class implementation
-            source.AppendLine($"    public partial class {validatedMap.ClassName}");
+            source.AppendLine($"    public partial class {validatedMap.ClassName} : Mappit.IMapper");
             source.AppendLine("    {");
 
+            // Generate private fields
+            source.AppendLine("        private readonly System.Collections.Generic.Dictionary<System.Type, System.Collections.Generic.Dictionary<System.Type, Mappit.TypeMapping>> _mappings;");
+            
             // Generate constructor that initializes all mappings
-            source.AppendLine($"        // Auto-generated constructor for {validatedMap.ClassName}");
             source.AppendLine($"        public {validatedMap.ClassName}()");
             source.AppendLine("        {");
+            source.AppendLine("            // Initialize mapping dictionary");
+            source.AppendLine("            _mappings = new System.Collections.Generic.Dictionary<System.Type, System.Collections.Generic.Dictionary<System.Type, Mappit.TypeMapping>>();");
+            source.AppendLine("            // Initialize user-defined mappings");
+            source.AppendLine("            InitializeCustomMappings();");
+            source.AppendLine();
             source.AppendLine("            // Initialize all mappings");
 
             // Generate mapping implementations and initialization
             foreach (var mapping in validatedMap.EnumMappings.Concat<ValidatedMappingInfo>(validatedMap.TypeMappings))
             {
                 // Initialize and register each mapping
-                source.AppendLine($"            {mapping.FieldName} = new {mapping.FieldName}Mapping();");
+                source.AppendLine($"            {mapping.FieldName} = new {mapping.MappingImplementationTypeName}();");
                 source.AppendLine($"            RegisterMapping({mapping.FieldName});");
             }
 
             source.AppendLine("        }");
+
+            // Add the RegisterMapping methods from MapperBase
+            source.AppendLine(CodeSnippetProvider.GetCodeSnippet("CommonMapperMethods.cs"));
 
             // Generate mapping class implementations for each type mapping declaration
             foreach (var mapping in validatedMap.TypeMappings)
@@ -102,11 +115,10 @@ namespace Mappit.Generator
         {
             var sourceTypeName = mapping.SourceType.Name;
             var destTypeName = mapping.DestinationType.Name;
-            var fieldName = mapping.FieldName;
 
             source.AppendLine();
-            source.AppendLine($"        // Implement {fieldName} mapping from {sourceTypeName} to {destTypeName}");
-            source.AppendLine($"        private sealed class {fieldName}Mapping : Mappit.TypeMapping<{sourceTypeName}, {destTypeName}>");
+            source.AppendLine($"        // Implement mapping from {sourceTypeName} to {destTypeName}");
+            source.AppendLine($"        private sealed class {mapping.MappingImplementationTypeName} : Mappit.TypeMapping<{sourceTypeName}, {destTypeName}>");
             source.AppendLine("        {");
             source.AppendLine($"            public override {destTypeName} Map(IMapper mapper, {sourceTypeName} typedSource)");
             source.AppendLine("            {");
@@ -171,11 +183,10 @@ namespace Mappit.Generator
         {
             var sourceTypeName = mapping.SourceType.Name;
             var destTypeName = mapping.DestinationType.Name;
-            var fieldName = mapping.FieldName;
 
             source.AppendLine();
-            source.AppendLine($"        // Implement {fieldName} mapping from {sourceTypeName} to {destTypeName}");
-            source.AppendLine($"        private sealed class {fieldName}Mapping : Mappit.TypeMapping<{sourceTypeName}, {destTypeName}>");
+            source.AppendLine($"        // Implement mapping from {sourceTypeName} to {destTypeName}");
+            source.AppendLine($"        private sealed class {mapping.MappingImplementationTypeName} : Mappit.TypeMapping<{sourceTypeName}, {destTypeName}>");
             source.AppendLine("        {");
             source.AppendLine($"            public override {destTypeName} Map(IMapper mapper, {sourceTypeName} source)");
             source.AppendLine("            {");

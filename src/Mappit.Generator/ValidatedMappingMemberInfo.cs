@@ -13,8 +13,8 @@ namespace Mappit.Generator
     {
         public ValidatedMappingMemberInfo(IPropertySymbol sourceProperty, IPropertySymbol targetProperty)
         {
-            this.SourceProperty = sourceProperty;
-            this.TargetProperty = targetProperty;
+            SourceProperty = sourceProperty;
+            TargetProperty = targetProperty;
         }
 
         public IPropertySymbol SourceProperty { get; }

@@ -192,7 +192,7 @@ namespace Mappit.Tests
     }
 
     [Mappit]
-    public partial class ConstructorTestMapper : MapperBase
+    public partial class ConstructorTestMapper
     {
         private readonly TypeMapping<SourceWithProperties, TargetWithConstructor> _sourceToTargetMapping;
 

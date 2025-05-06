@@ -6,8 +6,8 @@ namespace Mappit.Generator
     {
         public ValidatedMappingEnumMemberInfo(IFieldSymbol sourceField, IFieldSymbol targetField)
         {
-            this.SourceField = sourceField;
-            this.TargetField = targetField;
+            SourceField = sourceField;
+            TargetField = targetField;
         }
         public IFieldSymbol SourceField { get; }
         public IFieldSymbol TargetField { get; }

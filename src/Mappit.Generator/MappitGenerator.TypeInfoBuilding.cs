@@ -1,13 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Text;
-
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis.Text;
+
+using System.Linq;
 
 namespace Mappit.Generator
 {
@@ -22,10 +17,7 @@ namespace Mappit.Generator
 
             var semanticModel = context.SemanticModel;
             var classSymbol = semanticModel.GetDeclaredSymbol(classDeclarationSyntax);
-
-            // Check if the class inherits from MapperBase
-            // TODO move all the logic from MapperBase to the generated class - that will remove the need to derive from it all the time.
-            if (classSymbol?.BaseType?.Name != "MapperBase")
+            if (classSymbol is null)
             {
                 return null;
             }

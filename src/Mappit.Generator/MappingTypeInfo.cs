@@ -26,7 +26,7 @@ namespace Mappit.Generator
             FieldName = fieldName;
             SourceType = sourceType;
             DestinationType = destinationType;
-            this.FieldDeclaration = fieldDeclaration;
+            FieldDeclaration = fieldDeclaration;
             IsEnum = sourceType.TypeKind == TypeKind.Enum || destinationType.TypeKind == TypeKind.Enum;
 
             if (IsEnum)

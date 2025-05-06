@@ -10,7 +10,7 @@ The library errs on the side of correctness, so if types can't be fully mapped y
 
 ``` csharp
 [Mappit]
-public partial class Mapper : MapperBase
+public partial class Mapper
 {
     TypeMapping<Foo, FooRepresentation> foo;
 }
@@ -22,7 +22,7 @@ You can then use:
 var mapped = mapper.Map<FooRepresentation>(myfoo);
 ```
 
-`MappingBase` also implements the interface `IMapper` so you can configure that in your DI container.
+Mapper classes implement the `IMapper` interface, so you can configure that in your DI container.
 
 ## Supported mappings
 
@@ -42,7 +42,7 @@ If you need to map properties with different names, you can use the `MapProperty
 
 ```csharp
 [Mappit]
-public partial class Mapper : MapperBase
+public partial class Mapper
 {
     [MapMember(nameof(Foo.SourceProp), nameof(FooRepresentation.TargetProp))]
     TypeMapping<Foo, FooRepresentation> foo;
@@ -75,7 +75,7 @@ public enum TargetStatus {
 }
 
 [Mappit]
-public partial class Mapper : MapperBase
+public partial class Mapper
 {
     [MapMember(nameof(SourceStatus.Active), nameof(TargetStatus.Enabled))]
     [MapMember(nameof(SourceStatus.Inactive), nameof(TargetStatus.Disabled))]
@@ -95,9 +95,9 @@ If you run into limitations for a certain type, you can always define your own `
 
 ```csharp
 [Mappit]
-public partial class CustomMappingTestMapper : MapperBase
+public partial class CustomMappingTestMapper
 {
-    protected override void InitializeCustomMappings()
+    partial void InitializeCustomMappings()
     {
         RegisterMapping(new WeirdMapping());
     }
@@ -151,5 +151,4 @@ High level source generation steps:
 * Support for collections and dictionaries (IEnumerable, IList, etc.)
 * Support for nullable types (or at least tests for them)
 * Better placeholders to hold mappings - maybe partial private class definitions? (Would save on field allocation space)
-* Remove need for always deriving from MapperBase - generate base class with all the logic in it
 * Recursion handling

@@ -39,7 +39,7 @@ namespace Mappit.Tests
     }
 
     [Mappit]
-    public partial class TestMapper : MapperBase
+    public partial class TestMapper
     {
         private TypeMapping<Person, PersonDto> personToDto;
 

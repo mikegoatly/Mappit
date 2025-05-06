@@ -1,40 +1,17 @@
-using System;
-using System.Collections.Generic;
-
-namespace Mappit
-{
-    /// <summary>
-    /// Base class for mappers that implements the mapping logic
-    /// </summary>
-    public abstract class MapperBase : IMapper
-    {
-        private readonly Dictionary<Type, Dictionary<Type, TypeMapping>> _mappings;
-
-        /// <summary>
-        /// Creates a new instance of MappingBase
+﻿        /// <summary>
+        /// This method can be overridden to register custom <see cref=\"TypeMapping\"/> mappings.
         /// </summary>
-        protected MapperBase()
-        {
-            this._mappings = new Dictionary<Type, Dictionary<Type, TypeMapping>>();
-            this.InitializeCustomMappings();
-        }
-
-        /// <summary>
-        /// This method can be overridden to register custom <see cref="TypeMapping"/> mappings.
-        /// </summary>
-        protected virtual void InitializeCustomMappings()
-        {
-        }
+        partial void InitializeCustomMappings();
 
         /// <summary>
         /// Registers a mapping between source and destination types
         /// </summary>
-        protected void RegisterMapping(Type sourceType, Type destinationType, TypeMapping mapping)
+        protected void RegisterMapping(System.Type sourceType, System.Type destinationType, Mappit.TypeMapping mapping)
         {
-            if (!this._mappings.TryGetValue(sourceType, out var destMappings))
+            if (!_mappings.TryGetValue(sourceType, out var destMappings))
             {
-                destMappings = new Dictionary<Type, TypeMapping>();
-                this._mappings[sourceType] = destMappings;
+                destMappings = new System.Collections.Generic.Dictionary<System.Type, Mappit.TypeMapping>();
+                _mappings[sourceType] = destMappings;
             }
 
             destMappings[destinationType] = mapping;
@@ -43,7 +20,7 @@ namespace Mappit
         /// <summary>
         /// Registers a mapping between source and destination types
         /// </summary>
-        protected void RegisterMapping<TSource, TDestination>(TypeMapping mapping)
+        protected void RegisterMapping<TSource, TDestination>(Mappit.TypeMapping mapping)
         {
             RegisterMapping(typeof(TSource), typeof(TDestination), mapping);
         }
@@ -51,7 +28,7 @@ namespace Mappit
         /// <summary>
         /// Registers a mapping between source and destination types
         /// </summary>
-        protected void RegisterMapping<TSource, TDestination>(TypeMapping<TSource, TDestination> mapping)
+        protected void RegisterMapping<TSource, TDestination>(Mappit.TypeMapping<TSource, TDestination> mapping)
         {
             RegisterMapping(typeof(TSource), typeof(TDestination), mapping);
         }
@@ -88,17 +65,15 @@ namespace Mappit
             return (TDestination)MapInternal(source, sourceType, destinationType);
         }
 
-        private object MapInternal(object source, Type sourceType, Type destinationType)
+        private object MapInternal(object source, System.Type sourceType, System.Type destinationType)
         {
             // Check if we have a mapping for this source and destination type
-            if (this._mappings.TryGetValue(sourceType, out var destMappings) &&
+            if (_mappings.TryGetValue(sourceType, out var destMappings) &&
                 destMappings.TryGetValue(destinationType, out var mapping))
             {
                 return mapping.Map(this, source);
             }
 
-            throw new InvalidOperationException(
+            throw new System.InvalidOperationException(
                 $"No mapping defined from {sourceType.Name} to {destinationType.Name}");
         }
-    }
-}

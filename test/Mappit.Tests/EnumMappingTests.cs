@@ -88,7 +88,7 @@ namespace Mappit.Tests
     }
 
     [Mappit]
-    public partial class TestMapperWithEnums : MapperBase
+    public partial class TestMapperWithEnums
     {
         TypeMapping<ModelWithEnum, DtoWithEnum> modelToDto;
 
