@@ -26,7 +26,7 @@ namespace Mappit.Generator
             foreach (var mapping in TypeMappings.Concat<ValidatedMappingInfo>(EnumMappings))
             {
                 if (mapping.SourceType.Equals(sourceType, SymbolEqualityComparer.Default) &&
-                    mapping.DestinationType.Equals(targetType, SymbolEqualityComparer.Default))
+                    mapping.TargetType.Equals(targetType, SymbolEqualityComparer.Default))
                 {
                     return true;
                 }

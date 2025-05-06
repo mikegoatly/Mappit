@@ -14,7 +14,7 @@ namespace Mappit.Examples
     }
 
     /// <summary>
-    /// Example destination model
+    /// Example target model
     /// </summary>
     public class FooRepresentation
     {

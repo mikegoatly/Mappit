@@ -51,17 +51,17 @@ namespace Mappit.Generator
             source.AppendLine("{");
 
             // Generate partial class implementation
-            source.AppendLine($"    public partial class {validatedMap.ClassName} : Mappit.IMapper");
+            source.AppendLine($"    public partial class {validatedMap.ClassName} : global::Mappit.IMapper");
             source.AppendLine("    {");
 
             // Generate private fields
-            source.AppendLine("        private readonly System.Collections.Generic.Dictionary<System.Type, System.Collections.Generic.Dictionary<System.Type, Mappit.TypeMapping>> _mappings;");
+            source.AppendLine("        private readonly global::System.Collections.Generic.Dictionary<global::System.Type, global::System.Collections.Generic.Dictionary<global::System.Type, global::Mappit.TypeMapping>> _mappings;");
             
             // Generate constructor that initializes all mappings
             source.AppendLine($"        public {validatedMap.ClassName}()");
             source.AppendLine("        {");
             source.AppendLine("            // Initialize mapping dictionary");
-            source.AppendLine("            _mappings = new System.Collections.Generic.Dictionary<System.Type, System.Collections.Generic.Dictionary<System.Type, Mappit.TypeMapping>>();");
+            source.AppendLine("            _mappings = new global::System.Collections.Generic.Dictionary<global::System.Type, global::System.Collections.Generic.Dictionary<global::System.Type, global::Mappit.TypeMapping>>();");
             source.AppendLine("            // Initialize user-defined mappings");
             source.AppendLine("            InitializeCustomMappings();");
             source.AppendLine();
@@ -114,13 +114,13 @@ namespace Mappit.Generator
         private static void GenerateTypeMappingClass(StringBuilder source, ValidatedMapperClassInfo classInfo, ValidatedMappingTypeInfo mapping)
         {
             var sourceTypeName = mapping.SourceType.Name;
-            var destTypeName = mapping.DestinationType.Name;
+            var destTypeName = mapping.TargetType.Name;
 
             source.AppendLine();
             source.AppendLine($"        // Implement mapping from {sourceTypeName} to {destTypeName}");
-            source.AppendLine($"        private sealed class {mapping.MappingImplementationTypeName} : Mappit.TypeMapping<{sourceTypeName}, {destTypeName}>");
+            source.AppendLine($"        private sealed class {mapping.MappingImplementationTypeName} : global::Mappit.TypeMapping<{sourceTypeName}, {destTypeName}>");
             source.AppendLine("        {");
-            source.AppendLine($"            public override {destTypeName} Map(IMapper mapper, {sourceTypeName} typedSource)");
+            source.AppendLine($"            public override {destTypeName} Map(global::Mappit.IMapper mapper, {sourceTypeName} typedSource)");
             source.AppendLine("            {");
 
             // Start object initialization
@@ -182,13 +182,13 @@ namespace Mappit.Generator
         private static void GenerateEnumMappingClass(StringBuilder source, ValidatedMappingEnumInfo mapping)
         {
             var sourceTypeName = mapping.SourceType.Name;
-            var destTypeName = mapping.DestinationType.Name;
+            var destTypeName = mapping.TargetType.Name;
 
             source.AppendLine();
             source.AppendLine($"        // Implement mapping from {sourceTypeName} to {destTypeName}");
-            source.AppendLine($"        private sealed class {mapping.MappingImplementationTypeName} : Mappit.TypeMapping<{sourceTypeName}, {destTypeName}>");
+            source.AppendLine($"        private sealed class {mapping.MappingImplementationTypeName} : global::Mappit.TypeMapping<{sourceTypeName}, {destTypeName}>");
             source.AppendLine("        {");
-            source.AppendLine($"            public override {destTypeName} Map(IMapper mapper, {sourceTypeName} source)");
+            source.AppendLine($"            public override {destTypeName} Map(global::Mappit.IMapper mapper, {sourceTypeName} source)");
             source.AppendLine("            {");
             source.AppendLine($"                return source switch");
             source.AppendLine("                {");
@@ -200,7 +200,7 @@ namespace Mappit.Generator
             }
 
             // Add a default case to handle unmapped values
-            source.AppendLine($"                    _ => throw new ArgumentOutOfRangeException(nameof(source), $\"Invalid enum value {{source}}\")");
+            source.AppendLine($"                    _ => throw new global::System.ArgumentOutOfRangeException(nameof(source), $\"Invalid enum value {{source}}\")");
             source.AppendLine("                };");
             source.AppendLine("            }");
             source.AppendLine("        }");

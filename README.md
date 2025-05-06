@@ -31,14 +31,15 @@ Mapper classes implement the `IMapper` interface, so you can configure that in y
 * Custom property mappings 
 * Custom enum value mappings
 * Constructor initialization, including constructors that only cover some of the properties. Any remaining properties will be initialized via their setters.
+* Control over missing property handling (accept or reject mappings with missing target type properties)
 
 ## Property Mapping
 
-By default, Mappit maps properties with the same name and type. Properties that don't have matching names or compatible types in the destination type are ignored.
+By default, Mappit maps properties with the same name and type. Properties that don't have matching names or compatible types in the target type are ignored.
 
 ### Custom Property Mapping
 
-If you need to map properties with different names, you can use the `MapProperty` attribute:
+If you need to map properties with different names, you can use the `MapMember` attribute:
 
 ```csharp
 [Mappit]
@@ -52,6 +53,25 @@ public partial class Mapper
 This will map the `SourceProp` property of `Foo` to the `TargetProp` property of `FooRepresentation`. 
 
 The property names are validated at compile time, so you'll get a compilation error if they don't exist or have incompatible types. The error will point to the exact location of the problematic property name in your code.
+
+### Handling Missing Properties
+
+By default, at the class level, Mappit will generate an error when source properties don't have matching target properties. You can control this behavior with the `IgnoreMissingPropertiesOnTarget` option:
+
+```csharp
+// Class level setting - default is false
+[Mappit(IgnoreMissingPropertiesOnTarget = true)]
+public partial class Mapper
+{
+    // This mapping will ignore properties that exist in the source but not in the target
+    // because of the class-level setting
+    TypeMapping<Foo, FooDto> defaultMapping;
+    
+    // Override at the field level to require all properties to be mapped
+    [IgnoreMissingPropertiesOnTarget(false)]
+    TypeMapping<Bar, BarDto> requireAllProperties;
+}
+```
 
 ## Enum Mapping
 
@@ -146,9 +166,7 @@ High level source generation steps:
 
 ## Todo
 
-* Opt in to missing target members
 * Opt in to reverse mappings
 * Support for collections and dictionaries (IEnumerable, IList, etc.)
 * Support for nullable types (or at least tests for them)
-* Better placeholders to hold mappings - maybe partial private class definitions? (Would save on field allocation space)
 * Recursion handling

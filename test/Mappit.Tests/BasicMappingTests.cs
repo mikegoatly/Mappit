@@ -77,7 +77,7 @@ namespace Mappit.Tests
                 Salary = 85000
             };
 
-            // Act - Using the generic overload that specifies source and destination types
+            // Act - Using the generic overload that specifies source and target types
             var dto = _mapper.Map<Employee, EmployeeDto>(employee);
 
             // Assert

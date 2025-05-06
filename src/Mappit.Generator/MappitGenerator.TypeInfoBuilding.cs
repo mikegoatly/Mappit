@@ -1,7 +1,7 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-
+using System;
 using System.Linq;
 
 namespace Mappit.Generator
@@ -22,9 +22,10 @@ namespace Mappit.Generator
                 return null;
             }
 
-            var mapperClass = new MapperClassInfo(classSymbol);
+            // Create the mapper class info with the class-level config
+            var mapperClass = CreateMapperClassInfo(context, classSymbol);
 
-            // Find fields with TypeMapping<TSource, TDestination> type
+            // Find fields with TypeMapping<TSource, TTarget> type
             foreach (var member in classSymbol.GetMembers())
             {
                 if (member is IFieldSymbol fieldSymbol &&
@@ -47,11 +48,59 @@ namespace Mappit.Generator
                     }
 
                     var mappingInfo = BuildMapping(semanticModel, fieldDeclaration, fieldSymbol, sourceType, destType);
+
+                    // Apply any configuration attributes applied to the field, combined with the class-level settings
+                    ApplyMappingConfigForType(mapperClass, fieldSymbol, mappingInfo);
+
                     mapperClass.Mappings.Add(mappingInfo);
                 }
             }
 
             return mapperClass.Mappings.Count > 0 ? mapperClass : null;
+        }
+
+        private static void ApplyMappingConfigForType(MapperClassInfo mapperClass, IFieldSymbol fieldSymbol, MappingTypeInfo mappingInfo)
+        {
+            mappingInfo.IgnoreMissingPropertiesOnTarget = AttributeHasTrueValue(
+                fieldSymbol,
+                nameof(IgnoreMissingPropertiesOnTargetAttribute),
+                mapperClass.IgnoreMissingPropertiesOnTarget);
+        }
+
+        private static bool AttributeHasTrueValue(IFieldSymbol fieldSymbol, string attributeName, bool defaultValue)
+        {
+            // Check if the field has the specified attribute and if it has a true value
+            var attribute = fieldSymbol.GetAttributes()
+                .FirstOrDefault(a => a.AttributeClass?.Name == attributeName);
+
+            if (attribute != null && attribute.ConstructorArguments.Length > 0)
+            {
+                return attribute.ConstructorArguments[0].Value is bool value && value;
+            }
+
+            return defaultValue;
+        }
+
+        private static MapperClassInfo CreateMapperClassInfo(GeneratorAttributeSyntaxContext context, INamedTypeSymbol classSymbol)
+        {
+            var mapperClass = new MapperClassInfo(classSymbol);
+
+            var ignoreMissingProperties = false;
+            var mappitAttribute = context.Attributes.FirstOrDefault();
+            if (mappitAttribute != null)
+            {
+                foreach (var namedArg in mappitAttribute.NamedArguments)
+                {
+                    if (namedArg.Key == nameof(MappitAttribute.IgnoreMissingPropertiesOnTarget) && namedArg.Value.Value is bool value)
+                    {
+                        ignoreMissingProperties = value;
+                        break;
+                    }
+                }
+            }
+
+            mapperClass.IgnoreMissingPropertiesOnTarget = ignoreMissingProperties;
+            return mapperClass;
         }
 
         private static MappingTypeInfo BuildMapping(SemanticModel semanticModel, FieldDeclarationSyntax fieldDeclaration, IFieldSymbol fieldSymbol, ITypeSymbol sourceType, ITypeSymbol destType)

@@ -19,6 +19,7 @@ namespace Mappit.Generator
         public string ClassName { get; }
         public string Namespace { get; }
         public INamedTypeSymbol Symbol { get; }
+        public bool IgnoreMissingPropertiesOnTarget { get; internal set; }
         public List<MappingTypeInfo> Mappings { get; } = new();
     }
 }

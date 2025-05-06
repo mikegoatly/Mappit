@@ -4,39 +4,39 @@
         partial void InitializeCustomMappings();
 
         /// <summary>
-        /// Registers a mapping between source and destination types
+        /// Registers a mapping between source and target types
         /// </summary>
-        protected void RegisterMapping(System.Type sourceType, System.Type destinationType, Mappit.TypeMapping mapping)
+        protected void RegisterMapping(global::System.Type sourceType, global::System.Type targetType, global::Mappit.TypeMapping mapping)
         {
-            if (!_mappings.TryGetValue(sourceType, out var destMappings))
+            if (!_mappings.TryGetValue(sourceType, out var targetMappings))
             {
-                destMappings = new System.Collections.Generic.Dictionary<System.Type, Mappit.TypeMapping>();
-                _mappings[sourceType] = destMappings;
+                targetMappings = new global::System.Collections.Generic.Dictionary<System.Type, Mappit.TypeMapping>();
+                _mappings[sourceType] = targetMappings;
             }
 
-            destMappings[destinationType] = mapping;
+            targetMappings[targetType] = mapping;
         }
 
         /// <summary>
-        /// Registers a mapping between source and destination types
+        /// Registers a mapping between source and target types
         /// </summary>
-        protected void RegisterMapping<TSource, TDestination>(Mappit.TypeMapping mapping)
+        protected void RegisterMapping<TSource, TTarget>(global::Mappit.TypeMapping mapping)
         {
-            RegisterMapping(typeof(TSource), typeof(TDestination), mapping);
+            RegisterMapping(typeof(TSource), typeof(TTarget), mapping);
         }
 
         /// <summary>
-        /// Registers a mapping between source and destination types
+        /// Registers a mapping between source and target types
         /// </summary>
-        protected void RegisterMapping<TSource, TDestination>(Mappit.TypeMapping<TSource, TDestination> mapping)
+        protected void RegisterMapping<TSource, TTarget>(global::Mappit.TypeMapping<TSource, TTarget> mapping)
         {
-            RegisterMapping(typeof(TSource), typeof(TDestination), mapping);
+            RegisterMapping(typeof(TSource), typeof(TTarget), mapping);
         }
 
         /// <summary>
-        /// Maps an object of type TSource to type TDestination
+        /// Maps an object of type TSource to type TTarget
         /// </summary>
-        public TDestination Map<TDestination>(object source)
+        public TTarget Map<TTarget>(object source)
         {
             if (source == null)
             {
@@ -44,15 +44,15 @@
             }
 
             var sourceType = source.GetType();
-            var destinationType = typeof(TDestination);
+            var targetType = typeof(TTarget);
 
-            return (TDestination)MapInternal(source, sourceType, destinationType);
+            return (TTarget)MapInternal(source, sourceType, targetType);
         }
 
         /// <summary>
-        /// Maps an object of type TSource to type TDestination
+        /// Maps an object of type TSource to type TTarget
         /// </summary>
-        public TDestination Map<TSource, TDestination>(TSource source)
+        public TTarget Map<TSource, TTarget>(TSource source)
         {
             if (source == null)
             {
@@ -60,20 +60,20 @@
             }
 
             var sourceType = typeof(TSource);
-            var destinationType = typeof(TDestination);
+            var targetType = typeof(TTarget);
 
-            return (TDestination)MapInternal(source, sourceType, destinationType);
+            return (TTarget)MapInternal(source, sourceType, targetType);
         }
 
-        private object MapInternal(object source, System.Type sourceType, System.Type destinationType)
+        private object MapInternal(object source, global::System.Type sourceType, global::System.Type targetType)
         {
-            // Check if we have a mapping for this source and destination type
-            if (_mappings.TryGetValue(sourceType, out var destMappings) &&
-                destMappings.TryGetValue(destinationType, out var mapping))
+            // Check if we have a mapping for this source and target type
+            if (_mappings.TryGetValue(sourceType, out var targetMappings) &&
+                targetMappings.TryGetValue(targetType, out var mapping))
             {
                 return mapping.Map(this, source);
             }
 
-            throw new System.InvalidOperationException(
-                $"No mapping defined from {sourceType.Name} to {destinationType.Name}");
+            throw new global::System.InvalidOperationException(
+                $"No mapping defined from {sourceType.Name} to {targetType.Name}");
         }

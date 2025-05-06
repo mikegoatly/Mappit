@@ -19,7 +19,7 @@ namespace Mappit.Generator
                 {
                     ReportDiagnostic(
                         context,
-                        $"Mapping error for '{mapping.SourceType}' to '{mapping.DestinationType}': {mapping.ValidationError}",
+                        $"Mapping error for '{mapping.SourceType}' to '{mapping.TargetType}': {mapping.ValidationError}",
                         mapping.FieldDeclaration);
 
                     continue;
@@ -45,7 +45,7 @@ namespace Mappit.Generator
             var sourceMembers = mapping.SourceType.GetMembers().OfType<IFieldSymbol>()
                 .Where(f => f.IsStatic && f.IsConst || f.IsReadOnly).ToDictionary(x => x.Name, StringComparer.OrdinalIgnoreCase);
 
-            var targetMembers = mapping.DestinationType.GetMembers().OfType<IFieldSymbol>()
+            var targetMembers = mapping.TargetType.GetMembers().OfType<IFieldSymbol>()
                 .Where(f => f.IsStatic && f.IsConst || f.IsReadOnly).ToDictionary(x => x.Name, StringComparer.OrdinalIgnoreCase);
 
             // First validate any custom mappings that have been provided
@@ -61,7 +61,7 @@ namespace Mappit.Generator
                 if (!targetMembers.TryGetValue(enumMapping.TargetName, out var targetMember))
                 {
                     ReportDiagnostic(context,
-                        $"Target enum value '{enumMapping.TargetName}' not found in any enum property of type '{mapping.DestinationType.Name}'",
+                        $"Target enum value '{enumMapping.TargetName}' not found in any enum property of type '{mapping.TargetType.Name}'",
                         enumMapping.TargetArgument);
                 }
 
@@ -78,10 +78,12 @@ namespace Mappit.Generator
             var validatedMapping = new ValidatedMappingTypeInfo(mapping);
 
             var sourceProperties = mapping.SourceType.GetMembers().OfType<IPropertySymbol>()
-                .Where(f => !f.IsStatic && !f.IsWriteOnly).ToDictionary(x => x.Name, StringComparer.OrdinalIgnoreCase);
+                .Where(f => !f.IsStatic && !f.IsWriteOnly && !f.IsImplicitlyDeclared)
+                .ToDictionary(x => x.Name, StringComparer.OrdinalIgnoreCase);
 
-            var targetProperties = mapping.DestinationType.GetMembers().OfType<IPropertySymbol>()
-                .Where(f => !f.IsStatic).ToDictionary(x => x.Name, StringComparer.OrdinalIgnoreCase);
+            var targetProperties = mapping.TargetType.GetMembers().OfType<IPropertySymbol>()
+                .Where(f => !f.IsStatic  && !f.IsImplicitlyDeclared)
+                .ToDictionary(x => x.Name, StringComparer.OrdinalIgnoreCase);
 
             // First validate any custom mappings that have been provided
             foreach (var propertyMapping in mapping.MemberMappings.Values)
@@ -97,7 +99,7 @@ namespace Mappit.Generator
                 if (!targetProperties.TryGetValue(propertyMapping.TargetName, out var targetProperty))
                 {
                     ReportDiagnostic(context,
-                        $"Target property '{propertyMapping.TargetName}' not found in type '{mapping.DestinationType.Name}'",
+                        $"Target property '{propertyMapping.TargetName}' not found in type '{mapping.TargetType.Name}'",
                         propertyMapping.TargetArgument);
                 }
 
@@ -133,7 +135,7 @@ namespace Mappit.Generator
             if (bestCtor is null)
             {
                 ReportDiagnostic(context,
-                    $"No suitable constructor found for type '{mapping.DestinationType.Name}'. Parameter names must match the target type's property names.",
+                    $"No suitable constructor found for type '{mapping.TargetType.Name}'. Parameter names must match the target type's property names.",
                     mapping.FieldDeclaration);
 
                 return false;
@@ -177,7 +179,7 @@ namespace Mappit.Generator
         {
             (IMethodSymbol? ctor, int bestMatchCount) bestCtor = (null, 0);
 
-            var ctors = mapping.DestinationType.GetMembers()
+            var ctors = mapping.TargetType.GetMembers()
                 .Where(m => m.Kind == SymbolKind.Method && m.Name == ".ctor")
                 .Cast<IMethodSymbol>()
                 .OrderByDescending(m => m.Parameters.Length)
@@ -236,7 +238,7 @@ namespace Mappit.Generator
             // may be compatible because the user has mapped them.
             return mapperClass.Mappings.Any(m =>
                 m.SourceType.Equals(sourceType, SymbolEqualityComparer.Default) &&
-                m.DestinationType.Equals(targetType, SymbolEqualityComparer.Default));
+                m.TargetType.Equals(targetType, SymbolEqualityComparer.Default));
         }
 
         private static void ValidateRemainingPropertyMappings(
@@ -255,9 +257,15 @@ namespace Mappit.Generator
                     // Do we have a matching target property?
                     if (!targetProperties.TryGetValue(sourceMember.Name, out var targetMember))
                     {
-                        ReportDiagnostic(context,
-                            $"Target property '{sourceMember.Name}' not found in type '{mappingInfo.DestinationType.Name}'",
-                            mappingInfo.FieldDeclaration);
+                        // If we're not ignoring missing properties, report a diagnostic
+                        if (!mappingInfo.IgnoreMissingPropertiesOnTarget)
+                        {
+                            ReportDiagnostic(context,
+                                $"Property '{sourceMember.Name}' not found in target type '{mappingInfo.TargetType.Name}'. " +
+                                $"Use [{nameof(IgnoreMissingPropertiesOnTargetAttribute)}] to ignore this error.",
+                                mappingInfo.FieldDeclaration);
+                        }
+                        // Otherwise just skip this property
                     }
                     else
                     {
@@ -293,7 +301,7 @@ namespace Mappit.Generator
                     if (!targetMembers.TryGetValue(sourceMember.Name, out var targetMember))
                     {
                         ReportDiagnostic(context,
-                            $"Target enum value '{sourceMember.Name}' not found in type '{mappingInfo.DestinationType.Name}'",
+                            $"Target enum value '{sourceMember.Name}' not found in type '{mappingInfo.TargetType.Name}'. ",
                             mappingInfo.FieldDeclaration);
                     }
                     else
@@ -302,6 +310,16 @@ namespace Mappit.Generator
                     }
                 }
             }
+        }
+
+        // Helper method to check if a property is compiler-generated
+        private static bool IsCompilerGenerated(IPropertySymbol property)
+        {
+            // Check if the property itself has the CompilerGeneratedAttribute
+            var hasCompilerGeneratedAttribute = property.GetAttributes()
+                .Any(attr => attr.AttributeClass?.ToDisplayString() == "System.Runtime.CompilerServices.CompilerGeneratedAttribute");
+
+            return hasCompilerGeneratedAttribute;
         }
 
         // TODO need to specialize error ids for each error type

@@ -26,7 +26,7 @@ namespace Mappit.Tests
         }
 
         [Fact]
-        public void Map_UsingIncorrectDestinationType_ShouldThrowInvalidOperationException()
+        public void Map_UsingIncorrectTargetType_ShouldThrowInvalidOperationException()
         {
             // Arrange
             var person = new Person

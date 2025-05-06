@@ -21,7 +21,7 @@ namespace Mappit.Examples
                 IsActive = true
             };
 
-            // Map to destination type
+            // Map to target type
             var fooRepresentation = mapper.Map<FooRepresentation>(foo);
 
             // Alternatively, you can use the generic version

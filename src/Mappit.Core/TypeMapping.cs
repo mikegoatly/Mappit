@@ -8,11 +8,11 @@ namespace Mappit
     public abstract class TypeMapping
     {
         /// <summary>
-        /// Maps the source object to the destination type
+        /// Maps the source object to the target type
         /// </summary>
         /// <param name="mapper">The mapper instance that can be used to map child types.</param>
         /// <param name="source">Source object</param>
-        /// <returns>Mapped destination object</returns>
+        /// <returns>Mapped target object</returns>
         public abstract object Map(IMapper mapper, object source);
     }
 
@@ -20,21 +20,21 @@ namespace Mappit
     /// Represents a mapping between two types
     /// </summary>
     /// <typeparam name="TSource">Source type</typeparam>
-    /// <typeparam name="TDestination">Destination type</typeparam>
-    public abstract class TypeMapping<TSource, TDestination> : TypeMapping
+    /// <typeparam name="TTarget">Target type</typeparam>
+    public abstract class TypeMapping<TSource, TTarget> : TypeMapping
     {
         /// <summary>
-        /// Maps the source object to the destination type
+        /// Maps the source object to the target type
         /// </summary>
         /// <param name="source">Source object</param>
-        /// <returns>Mapped destination object</returns>
-        public abstract TDestination Map(IMapper mapper, TSource source);
+        /// <returns>Mapped target object</returns>
+        public abstract TTarget Map(IMapper mapper, TSource source);
 
         /// <summary>
-        /// Maps the source object to the destination type
+        /// Maps the source object to the target type
         /// </summary>
         /// <param name="source">Source object</param>
-        /// <returns>Mapped destination object</returns>
+        /// <returns>Mapped target object</returns>
         public override object Map(IMapper mapper, object source)
         {
             if (source is TSource typedSource)
@@ -42,7 +42,7 @@ namespace Mappit
                 return Map(mapper, typedSource);
             }
 
-            throw new InvalidOperationException($"Cannot map from {source.GetType()} to {typeof(TDestination)}");
+            throw new InvalidOperationException($"Cannot map from {source.GetType()} to {typeof(TTarget)}");
         }
     }
 }

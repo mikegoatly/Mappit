@@ -13,7 +13,7 @@ namespace Mappit.Generator
         }
 
         /// <summary>
-        /// A lookup of the source and destination member mappings. Keyed by the target member name.
+        /// A lookup of the source and target member mappings. Keyed by the target member name.
         /// </summary>
         /// <remarks>
         /// We use an ordinal ignore case comparer so we can match property names to parameter names of constructors.

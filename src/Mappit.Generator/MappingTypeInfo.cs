@@ -21,17 +21,17 @@ namespace Mappit.Generator
     /// </summary>
     internal sealed class MappingTypeInfo
     {
-        public MappingTypeInfo(string fieldName, ITypeSymbol sourceType, ITypeSymbol destinationType, FieldDeclarationSyntax fieldDeclaration)
+        public MappingTypeInfo(string fieldName, ITypeSymbol sourceType, ITypeSymbol targetType, FieldDeclarationSyntax fieldDeclaration)
         {
             FieldName = fieldName;
             SourceType = sourceType;
-            DestinationType = destinationType;
+            TargetType = targetType;
             FieldDeclaration = fieldDeclaration;
-            IsEnum = sourceType.TypeKind == TypeKind.Enum || destinationType.TypeKind == TypeKind.Enum;
+            IsEnum = sourceType.TypeKind == TypeKind.Enum || targetType.TypeKind == TypeKind.Enum;
 
             if (IsEnum)
             {
-                if (sourceType.TypeKind != TypeKind.Enum || destinationType.TypeKind != TypeKind.Enum)
+                if (sourceType.TypeKind != TypeKind.Enum || targetType.TypeKind != TypeKind.Enum)
                 {
                     ValidationError = MappingTypeValidationError.EnumTypeMismatch;
                 }
@@ -42,11 +42,23 @@ namespace Mappit.Generator
         public bool IsEnum { get; }
         public string FieldName { get; }
         public ITypeSymbol SourceType { get; }
-        public ITypeSymbol DestinationType { get; }
+        public ITypeSymbol TargetType { get; }
         public SyntaxNode FieldDeclaration { get; }
+        
+        /// <summary>
+        /// Whether to include compiler-generated properties in this mapping.
+        /// This combines the class-level setting with any field-level override.
+        /// </summary>
+        public bool IncludeCompilerGenerated { get; set; }
 
         /// <summary>
-        /// The member mappings for the source and destination types. Keyed by the source member name.
+        /// Whether to ignore missing properties on the target type.
+        /// This combines the class-level setting with any field-level override.
+        /// </summary>
+        public bool IgnoreMissingPropertiesOnTarget { get; set; }
+
+        /// <summary>
+        /// The member mappings for the source and target types. Keyed by the source member name.
         /// </summary>
         public Dictionary<string, MappingMemberInfo> MemberMappings { get; } = new();
     }

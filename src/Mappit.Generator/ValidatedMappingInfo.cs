@@ -10,15 +10,15 @@ namespace Mappit.Generator
         {
             FieldName = mappingTypeInfo.FieldName;
             SourceType = mappingTypeInfo.SourceType;
-            DestinationType = mappingTypeInfo.DestinationType;
+            TargetType = mappingTypeInfo.TargetType;
             FieldDeclaration = mappingTypeInfo.FieldDeclaration;
 
-            MappingImplementationTypeName = $"{FieldName}_{SourceType.Name}_{DestinationType.Name}_Mapping";
+            MappingImplementationTypeName = $"{FieldName}_{SourceType.Name}_{TargetType.Name}_Mapping";
         }
 
         public string FieldName { get; }
         public ITypeSymbol SourceType { get; }
-        public ITypeSymbol DestinationType { get; }
+        public ITypeSymbol TargetType { get; }
         public SyntaxNode FieldDeclaration { get; }
         internal string MappingImplementationTypeName { get; }
     }
