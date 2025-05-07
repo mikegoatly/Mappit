@@ -7,3 +7,4 @@ using System.Diagnostics.CodeAnalysis;
 
 [assembly: SuppressMessage("Naming", "CA1707:Identifiers should not contain underscores", Justification = "Unit tests use underscores in names")]
 [assembly: SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "A number of type names mention Enum because that's part of the test")]
+[assembly: SuppressMessage("Performance", "CA1859:Use concrete types when possible for improved performance", Justification = "Use of interfaces in tests rather than concrete types ensures that interface generation is done correctly")]

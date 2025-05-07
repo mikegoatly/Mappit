@@ -9,7 +9,7 @@ namespace Mappit.Generator
     /// <summary>
     /// Information about property mapping
     /// </summary>
-    internal sealed class MappingMemberInfo
+    internal sealed record MappingMemberInfo
     {
         public MappingMemberInfo(string sourceName, string targetName, AttributeSyntax attributeSyntaxNode)
         {
@@ -30,25 +30,25 @@ namespace Mappit.Generator
             TargetArgument = syntaxNode;
         }
 
-        public string SourceName { get; }
-        public string TargetName { get; }
+        public string SourceName { get; init; }
+        public string TargetName { get; init; }
 
         /// <summary>
         /// The main syntax node associated to this mapping - this may be an attribute containing a custom
         /// mapping, or the property itself if its for an implicit mapping where property names match.
         /// </summary>
-        public SyntaxNode SyntaxNode { get; }
+        public SyntaxNode SyntaxNode { get; init; }
 
         /// <summary>
         /// The syntax node associated to the source mapping. For implicit mappings this is the same
         /// as <see cref="SyntaxNode"/>.
         /// </summary>
-        public SyntaxNode SourceArgument { get; }
+        public SyntaxNode SourceArgument { get; init; }
 
         /// <summary>
         /// The syntax node associated to the target mapping. For implicit mappings this is the same
         /// as <see cref="SyntaxNode"/>.
         /// </summary>
-        public SyntaxNode TargetArgument { get; }
+        public SyntaxNode TargetArgument { get; init; }
     }
 }

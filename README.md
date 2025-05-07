@@ -135,15 +135,6 @@ public partial class CustomMappingTestMapper
 * No support for collections or dictionaries (IEnumerable, IList, etc.) (yet!)
 * Recursive object graphs won't work and your code will hang forever. I'll get to this eventually!
 
-## How Mappit Works
-
-High level source generation steps:
-
-1. 🔍 Check for class decorated with `[Mappit]` attribute
-2. 🗺️ Find all fields of type `TypeMapping<,>` in the class and their `MapMember` custom mappings
-3. ✅ Validate the mappings and identify the implicitly mapped properties as well as any constructor parameters
-4. 📝 Generate the mapping code
-
 ## Todo
 
 * Opt in to reverse mappings

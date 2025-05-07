@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 using Microsoft.CodeAnalysis;
 
@@ -15,11 +14,12 @@ namespace Mappit.Generator
 
             foreach (var mapping in mapperClass.Mappings)
             {
-                if (mapping.ValidationError != MappingTypeValidationError.None)
+                if (mapping.ValidationError != MappitErrorCode.None)
                 {
                     ReportDiagnostic(
                         context,
-                        $"Mapping error for '{mapping.SourceType}' to '{mapping.TargetType}': {mapping.ValidationError}",
+                        mapping.ValidationError,
+                        $"Mapping error for '{mapping.SourceType}' to '{mapping.TargetType}'",
                         mapping.MethodDeclaration);
 
                     continue;
@@ -53,14 +53,18 @@ namespace Mappit.Generator
             {
                 if (!sourceMembers.TryGetValue(enumMapping.SourceName, out var sourceMember))
                 {
-                    ReportDiagnostic(context,
+                    ReportDiagnostic(
+                        context,
+                        MappitErrorCode.UserMappedSourceEnumValueNotFound,
                         $"Source enum value '{enumMapping.SourceName}' not found in any enum property of type '{mapping.SourceType.Name}'",
                         enumMapping.SourceArgument);
                 }
 
                 if (!targetMembers.TryGetValue(enumMapping.TargetName, out var targetMember))
                 {
-                    ReportDiagnostic(context,
+                    ReportDiagnostic(
+                        context,
+                        MappitErrorCode.UserMappedTargetEnumValueNotFound,
                         $"Target enum value '{enumMapping.TargetName}' not found in any enum property of type '{mapping.TargetType.Name}'",
                         enumMapping.TargetArgument);
                 }
@@ -82,7 +86,7 @@ namespace Mappit.Generator
                 .ToDictionary(x => x.Name, StringComparer.OrdinalIgnoreCase);
 
             var targetProperties = mapping.TargetType.GetMembers().OfType<IPropertySymbol>()
-                .Where(f => !f.IsStatic  && !f.IsImplicitlyDeclared)
+                .Where(f => !f.IsStatic && !f.IsImplicitlyDeclared)
                 .ToDictionary(x => x.Name, StringComparer.OrdinalIgnoreCase);
 
             // First validate any custom mappings that have been provided
@@ -91,14 +95,18 @@ namespace Mappit.Generator
                 // Report diagnostics if properties don't exist
                 if (!sourceProperties.TryGetValue(propertyMapping.SourceName, out var sourceProperty))
                 {
-                    ReportDiagnostic(context,
+                    ReportDiagnostic(
+                        context,
+                        MappitErrorCode.UserMappedSourcePropertyNotFound,
                         $"Source property '{propertyMapping.SourceName}' not found in type '{mapping.SourceType.Name}'",
                         propertyMapping.SourceArgument);
                 }
 
                 if (!targetProperties.TryGetValue(propertyMapping.TargetName, out var targetProperty))
                 {
-                    ReportDiagnostic(context,
+                    ReportDiagnostic(
+                        context,
+                        MappitErrorCode.UserMappedTargetPropertyNotFound,
                         $"Target property '{propertyMapping.TargetName}' not found in type '{mapping.TargetType.Name}'",
                         propertyMapping.TargetArgument);
                 }
@@ -109,9 +117,7 @@ namespace Mappit.Generator
                     bool isCompatible = AreCompatibleTypes(mapperClass, sourceProperty.Type, targetProperty.Type);
                     if (!isCompatible)
                     {
-                        ReportDiagnostic(context,
-                            $"Incompatible types for property mapping: '{sourceProperty.Type.Name}' to '{targetProperty.Type.Name}'",
-                            propertyMapping.SyntaxNode);
+                        ReportIncompatibleSourceAndTargetPropertyTypesDiagnostic(context, sourceProperty, targetProperty, propertyMapping.SyntaxNode);
                     }
                     else
                     {
@@ -122,19 +128,34 @@ namespace Mappit.Generator
 
             ValidateRemainingPropertyMappings(context, mapperClass, mapping, validatedMapping, sourceProperties, targetProperties);
 
-            if (ValidateConstructionRequirements(context, validatedMapping))
+            if (ValidateConstructionRequirements(context, mapperClass, validatedMapping))
             {
                 validatedMapperClassInfo.TypeMappings.Add(validatedMapping);
             }
         }
 
-        private static bool ValidateConstructionRequirements(SourceProductionContext context, ValidatedMappingTypeInfo mapping)
+        private static void ReportIncompatibleSourceAndTargetPropertyTypesDiagnostic(
+            SourceProductionContext context,
+            IPropertySymbol sourceMember,
+            IPropertySymbol targetMember,
+            SyntaxNode syntaxNode)
+        {
+            ReportDiagnostic(
+                context,
+                MappitErrorCode.IncompatibleSourceAndTargetPropertyTypes,
+                $"Incompatible types for property mapping: {sourceMember.Name} ({sourceMember.Type.Name}) to {targetMember.Name} ({targetMember.Type.Name})",
+                syntaxNode);
+        }
+
+        private static bool ValidateConstructionRequirements(SourceProductionContext context, MapperClassInfo mapperClass, ValidatedMappingTypeInfo mapping)
         {
             var bestCtor = FindBestConstructor(mapping);
 
             if (bestCtor is null)
             {
-                ReportDiagnostic(context,
+                ReportDiagnostic(
+                    context,
+                    MappitErrorCode.NoSuitableConstructorFound,
                     $"No suitable constructor found for type '{mapping.TargetType.Name}'. Parameter names must match the target type's property names.",
                     mapping.MethodDeclaration);
 
@@ -151,7 +172,16 @@ namespace Mappit.Generator
                 {
                     propertyMapping.MappingKind = PropertyMappingKind.Constructor;
 
-                    // TODO validate type is the same as the target property type
+                    if (!AreCompatibleTypes(mapperClass, propertyMapping.SourceProperty.Type, constructorParam.Type))
+                    {
+                        ReportDiagnostic(
+                            context,
+                            MappitErrorCode.IncompatibleSourceAndConstructorPropertyTypes,
+                            $"Incompatible types for property mapping: {propertyMapping.SourceProperty.Name} ({propertyMapping.SourceProperty.Type.Name}) to {constructorParam.Name} ({constructorParam.Type.Name})",
+                            mapping.MethodDeclaration);
+
+                        return false;
+                    }
                 }
                 else
                 {
@@ -160,6 +190,7 @@ namespace Mappit.Generator
                     {
                         ReportDiagnostic(
                             context,
+                            MappitErrorCode.TargetPropertyReadOnly,
                             $"Target property '{propertyMapping.TargetProperty.Name}' is read only and cannot be set.",
                             mapping.MethodDeclaration);
 
@@ -260,9 +291,11 @@ namespace Mappit.Generator
                         // If we're not ignoring missing properties, report a diagnostic
                         if (!mappingInfo.IgnoreMissingPropertiesOnTarget)
                         {
-                            ReportDiagnostic(context,
+                            ReportDiagnostic(
+                                context,
+                                MappitErrorCode.ImplicitMappedTargetPropertyNotFound,
                                 $"Property '{sourceMember.Name}' not found in target type '{mappingInfo.TargetType.Name}'. " +
-                                $"Use [{nameof(IgnoreMissingPropertiesOnTargetAttribute)}] to ignore this error.",
+                                    $"Use [{nameof(IgnoreMissingPropertiesOnTargetAttribute)}] to ignore this error.",
                                 mappingInfo.MethodDeclaration);
                         }
                         // Otherwise just skip this property
@@ -272,9 +305,7 @@ namespace Mappit.Generator
                         // Check if property types are compatible
                         if (!AreCompatibleTypes(mapperClass, sourceMember.Type, targetMember.Type))
                         {
-                            ReportDiagnostic(context,
-                                $"Incompatible types for property mapping: '{sourceMember.Type.Name}' to '{targetMember.Type.Name}'",
-                                mappingInfo.MethodDeclaration);
+                            ReportIncompatibleSourceAndTargetPropertyTypesDiagnostic(context, sourceMember, targetMember, mappingInfo.MethodDeclaration);
                         }
                         else
                         {
@@ -300,7 +331,9 @@ namespace Mappit.Generator
                     // Do we have a matching target property?
                     if (!targetMembers.TryGetValue(sourceMember.Name, out var targetMember))
                     {
-                        ReportDiagnostic(context,
+                        ReportDiagnostic(
+                            context,
+                            MappitErrorCode.ImplicitTargetEnumValueNotFound,
                             $"Target enum value '{sourceMember.Name}' not found in type '{mappingInfo.TargetType.Name}'. ",
                             mappingInfo.MethodDeclaration);
                     }
@@ -323,26 +356,23 @@ namespace Mappit.Generator
         }
 
         // TODO need to specialize error ids for each error type
-        private static void ReportDiagnostic(SourceProductionContext context, string message, SyntaxNode node)
+        private static void ReportDiagnostic(
+            SourceProductionContext context,
+            MappitErrorCode errorCode,
+            string message,
+            SyntaxNode node)
         {
+            var (id, title) = ErrorCodes.GetError(errorCode);
             var descriptor = new DiagnosticDescriptor(
-                id: "MAPPIT001",
-                title: "Mappit Mapping Error",
+                id: id,
+                title: title,
                 messageFormat: message,
                 category: "Mappit",
                 defaultSeverity: DiagnosticSeverity.Error,
                 isEnabledByDefault: true);
 
-            if (node != null)
-            {
-                // Get the most precise span possible for better error location reporting
-                var location = Location.Create(node.SyntaxTree, node.Span);
-                context.ReportDiagnostic(Diagnostic.Create(descriptor, location));
-            }
-            else
-            {
-                context.ReportDiagnostic(Diagnostic.Create(descriptor, Location.None));
-            }
+            var location = Location.Create(node.SyntaxTree, node.Span);
+            context.ReportDiagnostic(Diagnostic.Create(descriptor, location));
         }
     }
 }

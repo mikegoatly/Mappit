@@ -1,7 +1,7 @@
 using System;
 using Xunit;
 
-namespace Mappit.Tests
+namespace Mappit.Tests.MappingGenerationVerification
 {
     public class CustomMappingTests
     {
@@ -56,7 +56,9 @@ namespace Mappit.Tests
                 var source = new SourceModel
                 {
                     Id = 1,
-                    Status = test.Source
+                    Status = test.Source,
+                    FirstName = "John",
+                    LastName = "Doe",
                 };
 
                 // Act
@@ -109,8 +111,8 @@ namespace Mappit.Tests
     public class SourceModel
     {
         public int Id { get; set; }
-        public string FirstName { get; set; }
-        public string LastName { get; set; }
+        public required string FirstName { get; set; }
+        public required string LastName { get; set; }
         public SourceStatus Status { get; set; }
         public DateTime CreatedOn { get; set; }
     }
@@ -118,15 +120,15 @@ namespace Mappit.Tests
     public class TargetModel
     {
         public int Id { get; set; }
-        public string FirstName { get; set; }
-        public string LastName { get; set; }
+        public required string FirstName { get; set; }
+        public required string LastName { get; set; }
         public TargetStatus Status { get; set; }
         public DateTime DateCreated { get; set; }
     }
 
     public class WeirdModel
     {
-        public string Name { get; set; }
+        public required string Name { get; set; }
     }
 
     public record WeirdModelMapped(string Name);
@@ -138,9 +140,11 @@ namespace Mappit.Tests
     [Mappit]
     public partial class CustomMappingTestMapper
     {
+        [ReverseMap]
         [MapMember(nameof(SourceModel.CreatedOn), nameof(TargetModel.DateCreated))]
         public partial TargetModel MapSourceToTarget(SourceModel source);
 
+        [ReverseMap]
         [MapMember(nameof(SourceStatus.Active), nameof(TargetStatus.Enabled))]
         [MapMember(nameof(SourceStatus.Inactive), nameof(TargetStatus.Disabled))]
         [MapMember(nameof(SourceStatus.Pending), nameof(TargetStatus.AwaitingConfirmation))]
@@ -150,8 +154,13 @@ namespace Mappit.Tests
 
         // Custom implementation for some bespoke weird mapping - in this case we're 
         // reversing the string on one of the properties.
-        public WeirdModelMapped MapWeirdModel(WeirdModel source)
+        public WeirdModelMapped? MapWeirdModel(WeirdModel? source)
         {
+            if (source is null)
+            {
+                return default;
+            }
+
             return new WeirdModelMapped(new string(source.Name.Reverse().ToArray()));
         }
     }

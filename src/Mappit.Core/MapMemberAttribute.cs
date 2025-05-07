@@ -9,7 +9,7 @@ namespace Mappit
     public sealed class MapMemberAttribute : Attribute
     {
         /// <summary>
-        /// Creates a new instance of MapMemberAttribute
+        /// Creates a new instance of <see cref="MapMemberAttribute"/>
         /// </summary>
         /// <param name="sourceName">Source member name</param>
         /// <param name="targetName">Target member name</param>

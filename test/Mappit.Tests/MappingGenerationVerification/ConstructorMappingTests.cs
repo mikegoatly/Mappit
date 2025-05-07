@@ -2,7 +2,7 @@ using System;
 
 using Xunit;
 
-namespace Mappit.Tests
+namespace Mappit.Tests.MappingGenerationVerification
 {
     public class ConstructorMappingTests
     {
@@ -122,8 +122,8 @@ namespace Mappit.Tests
     public class SourceWithProperties
     {
         public int Id { get; set; }
-        public string Name { get; set; }
-        public string Description { get; set; }
+        public required string Name { get; set; }
+        public required string Description { get; set; }
         public DateTime CreatedDate { get; set; }
         public bool IsActive { get; set; }
     }
@@ -146,29 +146,31 @@ namespace Mappit.Tests
 
     public class SourceWithDifferentCasing
     {
+#pragma warning disable IDE1006 // Naming Styles
         public int id { get; set; }
-        public string NAME { get; set; }
-        public string description { get; set; }
+        public required string NAME { get; set; }
+        public required string description { get; init; }
+#pragma warning restore IDE1006 // Naming Styles
     }
 
     public class SourceWithLimitedProperties
     {
         public int Id { get; set; }
-        public string Name { get; set; }
+        public required string Name { get; init; }
     }
 
     public class SourceWithCustomProperties
     {
         public int Identifier { get; set; }
-        public string Title { get; set; }
-        public string Text { get; set; }
+        public required string Title { get; init; }
+        public required string Text { get; init; }
     }
 
     public class TargetWithMixedInitialization
     {
         public int Id { get; }
         public string Name { get; }
-        public string Description { get; set; }
+        public required string Description { get; init; }
         public DateTime CreatedDate { get; set; }
         public bool IsActive { get; set; }
 

@@ -1,7 +1,7 @@
 using System;
 using Xunit;
 
-namespace Mappit.Tests
+namespace Mappit.Tests.MappingGenerationVerification
 {
     public class MissingPropertyTests
     {

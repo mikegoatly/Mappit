@@ -21,6 +21,6 @@ namespace Mappit.Generator
         /// not be able to distinguish between them.
         /// </remarks>
         public Dictionary<string, ValidatedMappingMemberInfo> MemberMappings { get; } = new(StringComparer.OrdinalIgnoreCase);
-        public IMethodSymbol Constructor { get; internal set; }
+        public IMethodSymbol? Constructor { get; internal set; }
     }
 }

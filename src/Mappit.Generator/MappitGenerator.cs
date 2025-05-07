@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using System.Text;
 
@@ -123,7 +124,7 @@ namespace Mappit.Generator
 
             source.AppendLine();
             source.AppendLine($"        // Implementation of mapping from {sourceTypeName} to {targetTypeName}");
-            source.AppendLine($"        public partial {targetTypeName} {mapping.MethodName}({sourceTypeName} source)");
+            source.AppendLine($"        public {(mapping.RequiresPartialMethod ? "partial " : "")}{targetTypeName} {mapping.MethodName}({sourceTypeName} source)");
             source.AppendLine("        {");
             source.AppendLine("            if (source == null)");
             source.AppendLine("            {");
@@ -134,18 +135,21 @@ namespace Mappit.Generator
             // Start object initialization
             source.AppendLine($"            return new {targetTypeName}");
 
-            if (mapping.Constructor.Parameters.Length > 0)
+            var ctor = mapping.Constructor
+                ?? throw new InvalidOperationException($"Constructor not set for mapping from {sourceTypeName} to {targetTypeName}");
+
+            if (ctor.Parameters.Length > 0)
             {
                 // Generate constructor arguments
                 source.Append("            (");
 
-                for (int i = 0; i < mapping.Constructor.Parameters.Length; i++)
+                for (int i = 0; i < ctor.Parameters.Length; i++)
                 {
-                    var param = mapping.Constructor.Parameters[i];
+                    var param = ctor.Parameters[i];
 
                     EmitSourcePropertyReference(source, classInfo, mapping.MemberMappings[param.Name]);
 
-                    if (i < mapping.Constructor.Parameters.Length - 1)
+                    if (i < ctor.Parameters.Length - 1)
                     {
                         source.Append(", ");
                     }
@@ -198,7 +202,7 @@ namespace Mappit.Generator
 
             source.AppendLine();
             source.AppendLine($"        // Implementation of mapping from {sourceTypeName} to {targetTypeName}");
-            source.AppendLine($"        public partial {targetTypeName} {mapping.MethodName}({sourceTypeName} source)");
+            source.AppendLine($"        public {(mapping.RequiresPartialMethod ? "partial " : "")} {targetTypeName} {mapping.MethodName}({sourceTypeName} source)");
             source.AppendLine("        {");
             source.AppendLine($"            return source switch");
             source.AppendLine("            {");

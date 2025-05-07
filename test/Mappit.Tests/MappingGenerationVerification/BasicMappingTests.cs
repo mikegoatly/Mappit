@@ -1,7 +1,7 @@
 using System;
 using Xunit;
 
-namespace Mappit.Tests
+namespace Mappit.Tests.MappingGenerationVerification
 {
     public class BasicMappingTests
     {
@@ -111,9 +111,8 @@ namespace Mappit.Tests
     [Mappit]
     public partial class TestMapper
     {
+        [ReverseMap]
         public partial PersonDto Map(Person source);
-
-        public partial Person Map(PersonDto source);
 
         public partial EmployeeDto Map(Employee source);
     }

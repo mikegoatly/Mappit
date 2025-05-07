@@ -54,6 +54,12 @@ namespace Mappit.Generator
                     ApplyMappingConfigForType(mapperClass, methodSymbol, mappingInfo);
 
                     mapperClass.Mappings.Add(mappingInfo);
+
+                    if (methodSymbol.GetAttributes().Any(a => a.AttributeClass?.Name == nameof(ReverseMapAttribute)))
+                    {
+                        // Create a reverse mapping for the method
+                        mapperClass.Mappings.Add(mappingInfo.BuildReverseMapping());
+                    }
                 }
             }
 

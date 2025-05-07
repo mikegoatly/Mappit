@@ -1,25 +1,15 @@
 using System;
 using System.Collections.Generic;
-
+using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Mappit.Generator
 {
-    internal enum MappingTypeValidationError
-    {
-        None,
-
-        /// <summary>
-        /// The source type or target type is an enum, but the other type is not
-        /// </summary>
-        EnumTypeMismatch,
-    }
-
     /// <summary>
     /// Information about a mapping declaration
     /// </summary>
-    internal sealed class MappingTypeInfo
+    internal sealed record MappingTypeInfo
     {
         private readonly IMethodSymbol _methodSymbol;
 
@@ -35,19 +25,19 @@ namespace Mappit.Generator
             {
                 if (sourceType.TypeKind != TypeKind.Enum || targetType.TypeKind != TypeKind.Enum)
                 {
-                    ValidationError = MappingTypeValidationError.EnumTypeMismatch;
+                    ValidationError = MappitErrorCode.EnumTypeMismatch;
                 }
             }
         }
 
-        public MappingTypeValidationError ValidationError { get; set; } = MappingTypeValidationError.None;
+        public MappitErrorCode ValidationError { get; set; }
         public bool RequiresGeneration => _methodSymbol.IsPartialDefinition;
-        public bool IsEnum { get; }
+        public bool IsEnum { get; init; }
         public string MethodName => _methodSymbol.Name;
 
-        public ITypeSymbol SourceType { get; }
-        public ITypeSymbol TargetType { get; }
-        public SyntaxNode MethodDeclaration { get; }
+        public ITypeSymbol SourceType { get; init; }
+        public ITypeSymbol TargetType { get; init; }
+        public SyntaxNode MethodDeclaration { get; init; }
 
         /// <summary>
         /// Whether to ignore missing properties on the target type.
@@ -58,6 +48,35 @@ namespace Mappit.Generator
         /// <summary>
         /// The member mappings for the source and target types. Keyed by the source member name.
         /// </summary>
-        public Dictionary<string, MappingMemberInfo> MemberMappings { get; } = new();
+        public Dictionary<string, MappingMemberInfo> MemberMappings { get; init; } = new();
+        public bool IsReverseMapping { get; private init; }
+
+        public MappingTypeInfo BuildReverseMapping()
+        {
+            return this with
+            {
+                SourceType = TargetType,
+                TargetType = SourceType,
+                IsReverseMapping = true,
+
+                // We don't copy any current validation error otherwise it will be duplicated in the reverse mapping
+                // But we do need to check that this isn't a custom mapping that can't be reversed.
+                ValidationError = this._methodSymbol.IsPartialDefinition 
+                    ? MappitErrorCode.None 
+                    : MappitErrorCode.CannotReverseMapCustomMapping,
+
+                // Reverse the member mappings, remembering to change the key to the target name.
+                MemberMappings = this.MemberMappings.Values.ToDictionary(
+                    v => v.TargetName,
+                    v => v with
+                    {
+                        SourceName = v.TargetName,
+                        TargetName = v.SourceName,
+                        SyntaxNode = v.SyntaxNode,
+                        SourceArgument = v.TargetArgument,
+                        TargetArgument = v.SourceArgument,
+                    }),
+            };
+        }
     }
 }

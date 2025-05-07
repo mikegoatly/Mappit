@@ -5,9 +5,9 @@ namespace Mappit.Examples
     /// <summary>
     /// Example program showing how to use the Mappit library
     /// </summary>
-    public class Program
+    public static class Program
     {
-        public static void Main(string[] args)
+        public static void Main()
         {
             // Create a mapper instance
             var mapper = new Mapper();
