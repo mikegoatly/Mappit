@@ -8,18 +8,17 @@ namespace Mappit.Generator
     {
         protected ValidatedMappingInfo(MappingTypeInfo mappingTypeInfo)
         {
-            FieldName = mappingTypeInfo.FieldName;
+            MethodName = mappingTypeInfo.MethodName;
             SourceType = mappingTypeInfo.SourceType;
             TargetType = mappingTypeInfo.TargetType;
-            FieldDeclaration = mappingTypeInfo.FieldDeclaration;
-
-            MappingImplementationTypeName = $"{FieldName}_{SourceType.Name}_{TargetType.Name}_Mapping";
+            MethodDeclaration = mappingTypeInfo.MethodDeclaration;
+            RequiresGeneration = mappingTypeInfo.RequiresGeneration;
         }
 
-        public string FieldName { get; }
+        public string MethodName { get; }
         public ITypeSymbol SourceType { get; }
         public ITypeSymbol TargetType { get; }
-        public SyntaxNode FieldDeclaration { get; }
-        internal string MappingImplementationTypeName { get; }
+        public SyntaxNode MethodDeclaration { get; }
+        public bool RequiresGeneration { get; }
     }
 }

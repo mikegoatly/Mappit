@@ -6,3 +6,4 @@
 using System.Diagnostics.CodeAnalysis;
 
 [assembly: SuppressMessage("Naming", "CA1707:Identifiers should not contain underscores", Justification = "Unit tests use underscores in names")]
+[assembly: SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "A number of type names mention Enum because that's part of the test")]

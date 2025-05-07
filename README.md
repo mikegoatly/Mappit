@@ -6,13 +6,21 @@ Mappit is a library that allows simple mapping between two types. Instead of usi
 
 The library errs on the side of correctness, so if types can't be fully mapped you'll get *compilation errors*, not errors at runtime.
 
+So the benefits of Mappit are:
+
+* Compile-time validation of mappings
+* No runtime reflection
+* No runtime performance overhead - mappings are pretty much what you'd write by hand
+
 ## Getting started
 
 ``` csharp
 [Mappit]
 public partial class Mapper
 {
-    TypeMapping<Foo, FooRepresentation> foo;
+    // Every partial mapping method is automatically implemented by the source generator
+    partial FooRepresentation Map(Foo source);
+    partial BarRepresentation Map(Bar source);
 }
 ```
 
@@ -22,20 +30,18 @@ You can then use:
 var mapped = mapper.Map<FooRepresentation>(myfoo);
 ```
 
-Mapper classes implement the `IMapper` interface, so you can configure that in your DI container.
+Some people like interfaces for everything, so every generated mapper also implements its own interface - the above example would have an interface `IMapper`.
+
+If you like, you can have multiple mapper classes with different names. They will each end up with their own interface, and you can use them independently.
 
 ## Supported mappings
 
-* Simple property mappings (properties with matching names and compatible types)
-* Enum mappings with compile-time validation
+* Implicit property mappings (properties with matching names and compatible types)
+* Implicit enum mappings where all the enum names match
 * Custom property mappings 
 * Custom enum value mappings
 * Constructor initialization, including constructors that only cover some of the properties. Any remaining properties will be initialized via their setters.
-* Control over missing property handling (accept or reject mappings with missing target type properties)
-
-## Property Mapping
-
-By default, Mappit maps properties with the same name and type. Properties that don't have matching names or compatible types in the target type are ignored.
+* Control over missing properties on the target type - by default you'll get compile-time errors, but can opt in to ignore them.
 
 ### Custom Property Mapping
 
@@ -46,30 +52,31 @@ If you need to map properties with different names, you can use the `MapMember` 
 public partial class Mapper
 {
     [MapMember(nameof(Foo.SourceProp), nameof(FooRepresentation.TargetProp))]
-    TypeMapping<Foo, FooRepresentation> foo;
+    partial FooRepresentation Map(Foo source);
 }
 ```
 
 This will map the `SourceProp` property of `Foo` to the `TargetProp` property of `FooRepresentation`. 
 
-The property names are validated at compile time, so you'll get a compilation error if they don't exist or have incompatible types. The error will point to the exact location of the problematic property name in your code.
+The property names are validated at compile time, so you'll get a compilation error if they don't exist or have incompatible types.
 
 ### Handling Missing Properties
 
-By default, at the class level, Mappit will generate an error when source properties don't have matching target properties. You can control this behavior with the `IgnoreMissingPropertiesOnTarget` option:
+By default, at the class level, Mappit will generate an error when source properties don't have matching target properties. You can control this behavior with the `IgnoreMissingPropertiesOnTarget` option at either
+the class or mapping method:
 
 ```csharp
-// Class level setting - default is false
+// Class level setting - default is false, but you can set it to true here
 [Mappit(IgnoreMissingPropertiesOnTarget = true)]
 public partial class Mapper
 {
     // This mapping will ignore properties that exist in the source but not in the target
     // because of the class-level setting
-    TypeMapping<Foo, FooDto> defaultMapping;
+    partial FooRepresentation Map(Foo source);
     
     // Override at the field level to require all properties to be mapped
     [IgnoreMissingPropertiesOnTarget(false)]
-    TypeMapping<Bar, BarDto> requireAllProperties;
+    partial BarRepresentation Map(Bar source);
 }
 ```
 
@@ -100,34 +107,24 @@ public partial class Mapper
     [MapMember(nameof(SourceStatus.Active), nameof(TargetStatus.Enabled))]
     [MapMember(nameof(SourceStatus.Inactive), nameof(TargetStatus.Disabled))]
     [MapMember(nameof(SourceStatus.Pending), nameof(TargetStatus.AwaitingConfirmation))]
-    TypeMapping<SourceStatus, TargetStatus> sourceToTarget;
+    partial TargetStatus Map(SourceStatus source);
 }
 ```
 
-All enum values are validated at compile time, ensuring correctness:
-- If a source or target enum value doesn't exist, you'll get a compilation error
-- The error will point to the exact attribute argument that contains the invalid value
-- Mappings without explicit custom values use the direct numeric cast for the underlying enum values
+If you get any of these names wrong, you'll get a compile-time error.
 
 ## Custom type mappings
 
-If you run into limitations for a certain type, you can always define your own `TypeMapping`:
+If you run into limitations for a certain type, you can provide a concrete implementation for a mapping method that the 
+source generator will use as-is:
 
 ```csharp
 [Mappit]
 public partial class CustomMappingTestMapper
 {
-    partial void InitializeCustomMappings()
+    public WeirdModelMapped Map(WeirdModel source)
     {
-        RegisterMapping(new WeirdMapping());
-    }
-
-    class WeirdMapping : TypeMapping<WeirdModel, WeirdOtherModel>
-    {
-        public override WeirdModel Map(WeirdModel source)
-        {
-            return new WeirdModel { Name = new string([..source.Name.Reverse()]) };
-        }
+        return new WeirdModelMapped { Name = new string([..source.Name.Reverse()]) };
     }
 }
 ```
@@ -135,27 +132,10 @@ public partial class CustomMappingTestMapper
 ## Known limitations
 
 * Classes containing properties with properties differing only by case are not supported.
-
-## Compile-time Safety
-
-Mappit focuses on correctness through compile-time validation:
-
-- All property names and types are validated
-- All enum values are checked to ensure they exist
-- Errors are reported with precise source location information
-- Compilation fails if any mapping would be invalid at runtime
+* No support for collections or dictionaries (IEnumerable, IList, etc.) (yet!)
+* Recursive object graphs won't work and your code will hang forever. I'll get to this eventually!
 
 ## How Mappit Works
-
-1. You define mappings as generic fields
-2. The source generator analyzes your code at compile time
-3. It generates mapping implementations based on your definitions
-
-The source generator approach means:
-- No reflection at runtime for better performance
-- No reliance on convention over configuration
-- Explicit mapping definitions with compile-time checking
-- Clear error messages attached to the exact location of issues
 
 High level source generation steps:
 
@@ -168,5 +148,4 @@ High level source generation steps:
 
 * Opt in to reverse mappings
 * Support for collections and dictionaries (IEnumerable, IList, etc.)
-* Support for nullable types (or at least tests for them)
 * Recursion handling

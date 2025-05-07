@@ -5,7 +5,7 @@ namespace Mappit.Tests
 {
     public class EnumMappingTests
     {
-        private readonly IMapper _mapper;
+        private readonly ITestMapperWithEnums _mapper;
 
         public EnumMappingTests()
         {
@@ -25,7 +25,7 @@ namespace Mappit.Tests
             };
 
             // Act
-            var dto = _mapper.Map<DtoWithEnum>(model);
+            var dto = _mapper.Map(model);
 
             // Assert
             Assert.Equal(model.Id, dto.Id);
@@ -47,7 +47,7 @@ namespace Mappit.Tests
             };
 
             // Act
-            var model = _mapper.Map<ModelWithEnum>(dto);
+            var model = _mapper.Map(dto);
 
             // Assert
             Assert.Equal(dto.Id, model.Id);
@@ -74,7 +74,7 @@ namespace Mappit.Tests
     public class ModelWithEnum
     {
         public int Id { get; set; }
-        public string Name { get; set; }
+        public required string Name { get; init; }
         public Color PrimaryColor { get; set; }
         public Color SecondaryColor { get; set; }
     }
@@ -82,7 +82,7 @@ namespace Mappit.Tests
     public class DtoWithEnum
     {
         public int Id { get; set; }
-        public string Name { get; set; }
+        public required string Name { get; init; }
         public DisplayColor PrimaryColor { get; set; }
         public DisplayColor SecondaryColor { get; set; }
     }
@@ -90,12 +90,12 @@ namespace Mappit.Tests
     [Mappit]
     public partial class TestMapperWithEnums
     {
-        TypeMapping<ModelWithEnum, DtoWithEnum> modelToDto;
-
-        TypeMapping<DtoWithEnum, ModelWithEnum> dtoToModel;
-
-        TypeMapping<DisplayColor, Color> displayColorToColor;
-
-        TypeMapping<Color, DisplayColor> colorToDisplayColor;
+        public partial DtoWithEnum Map(ModelWithEnum source);
+        
+        public partial ModelWithEnum Map(DtoWithEnum source);
+        
+        public partial Color Map(DisplayColor source);
+        
+        public partial DisplayColor Map(Color source);
     }
 }

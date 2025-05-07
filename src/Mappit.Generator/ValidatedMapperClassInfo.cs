@@ -21,17 +21,19 @@ namespace Mappit.Generator
         public List<ValidatedMappingTypeInfo> TypeMappings { get; } = new();
         public List<ValidatedMappingEnumInfo> EnumMappings { get; } = new();
 
-        internal bool IsMappedType(ITypeSymbol sourceType, ITypeSymbol targetType)
+        internal bool TryGetMappedType(ITypeSymbol sourceType, ITypeSymbol targetType, out ValidatedMappingInfo? typeMapping)
         {
             foreach (var mapping in TypeMappings.Concat<ValidatedMappingInfo>(EnumMappings))
             {
                 if (mapping.SourceType.Equals(sourceType, SymbolEqualityComparer.Default) &&
                     mapping.TargetType.Equals(targetType, SymbolEqualityComparer.Default))
                 {
+                    typeMapping = mapping;
                     return true;
                 }
             }
 
+            typeMapping = default;
             return false;
         }
     }

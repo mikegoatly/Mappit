@@ -20,7 +20,7 @@ namespace Mappit.Generator
                     ReportDiagnostic(
                         context,
                         $"Mapping error for '{mapping.SourceType}' to '{mapping.TargetType}': {mapping.ValidationError}",
-                        mapping.FieldDeclaration);
+                        mapping.MethodDeclaration);
 
                     continue;
                 }
@@ -136,7 +136,7 @@ namespace Mappit.Generator
             {
                 ReportDiagnostic(context,
                     $"No suitable constructor found for type '{mapping.TargetType.Name}'. Parameter names must match the target type's property names.",
-                    mapping.FieldDeclaration);
+                    mapping.MethodDeclaration);
 
                 return false;
             }
@@ -161,7 +161,7 @@ namespace Mappit.Generator
                         ReportDiagnostic(
                             context,
                             $"Target property '{propertyMapping.TargetProperty.Name}' is read only and cannot be set.",
-                            mapping.FieldDeclaration);
+                            mapping.MethodDeclaration);
 
                         return false;
                     }
@@ -263,7 +263,7 @@ namespace Mappit.Generator
                             ReportDiagnostic(context,
                                 $"Property '{sourceMember.Name}' not found in target type '{mappingInfo.TargetType.Name}'. " +
                                 $"Use [{nameof(IgnoreMissingPropertiesOnTargetAttribute)}] to ignore this error.",
-                                mappingInfo.FieldDeclaration);
+                                mappingInfo.MethodDeclaration);
                         }
                         // Otherwise just skip this property
                     }
@@ -274,7 +274,7 @@ namespace Mappit.Generator
                         {
                             ReportDiagnostic(context,
                                 $"Incompatible types for property mapping: '{sourceMember.Type.Name}' to '{targetMember.Type.Name}'",
-                                mappingInfo.FieldDeclaration);
+                                mappingInfo.MethodDeclaration);
                         }
                         else
                         {
@@ -302,7 +302,7 @@ namespace Mappit.Generator
                     {
                         ReportDiagnostic(context,
                             $"Target enum value '{sourceMember.Name}' not found in type '{mappingInfo.TargetType.Name}'. ",
-                            mappingInfo.FieldDeclaration);
+                            mappingInfo.MethodDeclaration);
                     }
                     else
                     {

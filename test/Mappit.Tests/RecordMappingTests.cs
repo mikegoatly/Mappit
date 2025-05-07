@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 using Xunit;
 
 namespace Mappit.Tests
@@ -12,7 +9,7 @@ namespace Mappit.Tests
         {
             var mapper = new RecordToClassMapper();
             var source = new Root("root", new Level1("level1", new Level2("level2")));
-            var target = mapper.Map<ClassRoot>(source);
+            var target = mapper.Map(source);
             Assert.Equal(source.Name, target.Name);
             Assert.Equal(source.Level1.Name, target.Level1.Name);
             Assert.Equal(source.Level1.Level2.Name, target.Level1.Level2.Name);
@@ -35,7 +32,7 @@ namespace Mappit.Tests
                 }
             };
 
-            var target = mapper.Map<Root>(source);
+            var target = mapper.Map(source);
             Assert.Equal(source.Name, target.Name);
             Assert.Equal(source.Level1.Name, target.Level1.Name);
             Assert.Equal(source.Level1.Level2.Name, target.Level1.Level2.Name);
@@ -50,29 +47,29 @@ namespace Mappit.Tests
 
     public class ClassRoot
     {
-        public string Name { get; set; }
-        public ClassLevel1 Level1 { get; set; }
+        public required string Name { get; set; }
+        public required ClassLevel1 Level1 { get; set; }
     }
 
     public class ClassLevel1
     {
-        public string Name { get; set; }
-        public ClassLevel2 Level2 { get; set; }
+        public required string Name { get; set; }
+        public required ClassLevel2 Level2 { get; set; }
     }
 
     public class ClassLevel2
     {
-        public string Name { get; set; }
+        public required string Name { get; set; }
     }
 
     [Mappit]
     public partial class RecordToClassMapper
     {
-        TypeMapping<Root, ClassRoot> rootRecordToClass;
-        TypeMapping<Level1, ClassLevel1> level1RecordToClass;
-        TypeMapping<Level2, ClassLevel2> level2RecordToClass;
-        TypeMapping<ClassRoot, Root> classToRecordRoot;
-        TypeMapping<ClassLevel1, Level1> classToRecordLevel1;
-        TypeMapping<ClassLevel2, Level2> classToRecordLevel2;
+        public partial ClassRoot Map(Root source);
+        public partial ClassLevel1 Map(Level1 source);
+        public partial ClassLevel2 Map(Level2 source);
+        public partial Root Map(ClassRoot source);
+        public partial Level1 Map(ClassLevel1 source);
+        public partial Level2 Map(ClassLevel2 source);
     }
 }

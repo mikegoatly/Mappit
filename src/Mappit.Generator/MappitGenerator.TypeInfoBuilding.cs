@@ -25,32 +25,33 @@ namespace Mappit.Generator
             // Create the mapper class info with the class-level config
             var mapperClass = CreateMapperClassInfo(context, classSymbol);
 
-            // Find fields with TypeMapping<TSource, TTarget> type
+            // Find partial methods starting with "Map"
             foreach (var member in classSymbol.GetMembers())
             {
-                if (member is IFieldSymbol fieldSymbol &&
-                    fieldSymbol.Type is INamedTypeSymbol namedType &&
-                    namedType.IsGenericType &&
-                    namedType.Name == "TypeMapping" &&
-                    namedType.TypeArguments.Length == 2 &&
-                    namedType.TypeArguments[0] is ITypeSymbol sourceType &&
-                    namedType.TypeArguments[1] is ITypeSymbol destType)
-                {
-                    // Find the field declaration in the syntax tree
-                    var fieldDeclarations = classDeclarationSyntax.DescendantNodes()
-                        .OfType<FieldDeclarationSyntax>()
-                        .Where(f => f.Declaration.Variables.Any(v => v.Identifier.Text == fieldSymbol.Name))
-                        .FirstOrDefault();
+                // TODO report warnings for "Map*" methods that don't match the pattern
 
-                    if (fieldDeclarations is not { } fieldDeclaration)
+                if (member is IMethodSymbol methodSymbol && 
+                    methodSymbol.Name.StartsWith("Map", StringComparison.Ordinal) &&
+                    methodSymbol.Parameters.Length == 1 &&
+                    methodSymbol.ReturnType is ITypeSymbol returnType)
+                {
+                    // Find the method declaration in the syntax tree
+                    var methodDeclaration = classDeclarationSyntax.DescendantNodes()
+                        .OfType<MethodDeclarationSyntax>()
+                        .FirstOrDefault(m => m.Identifier.Text == methodSymbol.Name);
+
+                    if (methodDeclaration == null)
                     {
                         continue;
                     }
 
-                    var mappingInfo = BuildMapping(semanticModel, fieldDeclaration, fieldSymbol, sourceType, destType);
+                    var sourceType = methodSymbol.Parameters[0].Type;
+                    var destType = returnType;
 
-                    // Apply any configuration attributes applied to the field, combined with the class-level settings
-                    ApplyMappingConfigForType(mapperClass, fieldSymbol, mappingInfo);
+                    var mappingInfo = BuildMapping(semanticModel, methodDeclaration, methodSymbol, sourceType, destType);
+
+                    // Apply any configuration attributes applied to the method, combined with the class-level settings
+                    ApplyMappingConfigForType(mapperClass, methodSymbol, mappingInfo);
 
                     mapperClass.Mappings.Add(mappingInfo);
                 }
@@ -59,18 +60,18 @@ namespace Mappit.Generator
             return mapperClass.Mappings.Count > 0 ? mapperClass : null;
         }
 
-        private static void ApplyMappingConfigForType(MapperClassInfo mapperClass, IFieldSymbol fieldSymbol, MappingTypeInfo mappingInfo)
+        private static void ApplyMappingConfigForType(MapperClassInfo mapperClass, IMethodSymbol methodSymbol, MappingTypeInfo mappingInfo)
         {
             mappingInfo.IgnoreMissingPropertiesOnTarget = AttributeHasTrueValue(
-                fieldSymbol,
+                methodSymbol,
                 nameof(IgnoreMissingPropertiesOnTargetAttribute),
                 mapperClass.IgnoreMissingPropertiesOnTarget);
         }
 
-        private static bool AttributeHasTrueValue(IFieldSymbol fieldSymbol, string attributeName, bool defaultValue)
+        private static bool AttributeHasTrueValue(IMethodSymbol methodSymbol, string attributeName, bool defaultValue)
         {
-            // Check if the field has the specified attribute and if it has a true value
-            var attribute = fieldSymbol.GetAttributes()
+            // Check if the method has the specified attribute and if it has a true value
+            var attribute = methodSymbol.GetAttributes()
                 .FirstOrDefault(a => a.AttributeClass?.Name == attributeName);
 
             if (attribute != null && attribute.ConstructorArguments.Length > 0)
@@ -103,13 +104,13 @@ namespace Mappit.Generator
             return mapperClass;
         }
 
-        private static MappingTypeInfo BuildMapping(SemanticModel semanticModel, FieldDeclarationSyntax fieldDeclaration, IFieldSymbol fieldSymbol, ITypeSymbol sourceType, ITypeSymbol destType)
+        private static MappingTypeInfo BuildMapping(SemanticModel semanticModel, MethodDeclarationSyntax methodDeclaration, IMethodSymbol methodSymbol, ITypeSymbol sourceType, ITypeSymbol destType)
         {
             // Start building the mapping info for the source to target type
-            var mappingInfo = new MappingTypeInfo(fieldSymbol.Name, sourceType, destType, fieldDeclaration);
+            var mappingInfo = new MappingTypeInfo(methodSymbol, sourceType, destType, methodDeclaration);
 
             // Find all MapMember attributes in the syntax tree - these will be the custom mappings
-            var memberMappingAttributeSyntaxes = fieldDeclaration.AttributeLists
+            var memberMappingAttributeSyntaxes = methodDeclaration.AttributeLists
                 .SelectMany(al => al.Attributes)
                 .Where(a => a.Name.ToString() == "MapMember" && a.ArgumentList?.Arguments.Count == 2)
                 .ToList();

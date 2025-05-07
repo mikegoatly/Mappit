@@ -6,7 +6,7 @@ namespace Mappit
     /// Attribute to specify whether missing properties on the target type should be ignored.
     /// This overrides the setting specified at the mapper class level via <see cref="MappitAttribute.IgnoreMissingPropertiesOnTarget"/>.
     /// </summary>
-    [AttributeUsage(AttributeTargets.Field, AllowMultiple = false)]
+    [AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
     public sealed class IgnoreMissingPropertiesOnTargetAttribute : Attribute
     {
         /// <summary>

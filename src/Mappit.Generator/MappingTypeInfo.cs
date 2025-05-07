@@ -21,12 +21,14 @@ namespace Mappit.Generator
     /// </summary>
     internal sealed class MappingTypeInfo
     {
-        public MappingTypeInfo(string fieldName, ITypeSymbol sourceType, ITypeSymbol targetType, FieldDeclarationSyntax fieldDeclaration)
+        private readonly IMethodSymbol _methodSymbol;
+
+        public MappingTypeInfo(IMethodSymbol methodSymbol, ITypeSymbol sourceType, ITypeSymbol targetType, MethodDeclarationSyntax methodDeclaration)
         {
-            FieldName = fieldName;
+            this._methodSymbol = methodSymbol;
             SourceType = sourceType;
             TargetType = targetType;
-            FieldDeclaration = fieldDeclaration;
+            MethodDeclaration = methodDeclaration;
             IsEnum = sourceType.TypeKind == TypeKind.Enum || targetType.TypeKind == TypeKind.Enum;
 
             if (IsEnum)
@@ -39,21 +41,17 @@ namespace Mappit.Generator
         }
 
         public MappingTypeValidationError ValidationError { get; set; } = MappingTypeValidationError.None;
+        public bool RequiresGeneration => _methodSymbol.IsPartialDefinition;
         public bool IsEnum { get; }
-        public string FieldName { get; }
+        public string MethodName => _methodSymbol.Name;
+
         public ITypeSymbol SourceType { get; }
         public ITypeSymbol TargetType { get; }
-        public SyntaxNode FieldDeclaration { get; }
-        
-        /// <summary>
-        /// Whether to include compiler-generated properties in this mapping.
-        /// This combines the class-level setting with any field-level override.
-        /// </summary>
-        public bool IncludeCompilerGenerated { get; set; }
+        public SyntaxNode MethodDeclaration { get; }
 
         /// <summary>
         /// Whether to ignore missing properties on the target type.
-        /// This combines the class-level setting with any field-level override.
+        /// This combines the class-level setting with any method-level override.
         /// </summary>
         public bool IgnoreMissingPropertiesOnTarget { get; set; }
 

@@ -5,7 +5,7 @@ namespace Mappit.Tests
 {
     public class CustomMappingTests
     {
-        private readonly IMapper _mapper;
+        private readonly ICustomMappingTestMapper _mapper;
 
         public CustomMappingTests()
         {
@@ -26,7 +26,7 @@ namespace Mappit.Tests
             };
 
             // Act
-            var target = _mapper.Map<TargetModel>(source);
+            var target = _mapper.MapSourceToTarget(source);
 
             // Assert
             Assert.Equal(source.Id, target.Id);
@@ -60,7 +60,7 @@ namespace Mappit.Tests
                 };
 
                 // Act
-                var target = _mapper.Map<TargetModel>(source);
+                var target = _mapper.MapSourceToTarget(source);
 
                 // Assert
                 Assert.Equal(test.Expected, target.Status);
@@ -68,14 +68,26 @@ namespace Mappit.Tests
         }
 
         [Fact]
-        public void Map_WithWeirdMapping_ShouldMapCorrectly()
+        public void Map_WithUserDefinedMappingMethod_ShouldMapCorrectly()
         {
             // Arrange
             var source = new WeirdModel { Name = "Weird" };
             // Act
-            var target = _mapper.Map<WeirdModel>(source);
+            var target = _mapper.MapWeirdModel(source);
             // Assert
             Assert.Equal("drieW", target.Name);
+        }
+
+        [Fact]
+        public void Map_WithNestedModelRequiringUserDefinedMapping_ShouldMapCorrectly()
+        {
+            // Arrange
+            var source = new WeirdModelContainer(1, new WeirdModel { Name = "Weird" });
+            // Act
+            var target = _mapper.Map(source);
+            // Assert
+            Assert.Equal(source.Id, target.Id);
+            Assert.Equal("drieW", target.WeirdModel.Name);
         }
     }
 
@@ -117,28 +129,30 @@ namespace Mappit.Tests
         public string Name { get; set; }
     }
 
+    public record WeirdModelMapped(string Name);
+
+    public record WeirdModelContainer(int Id, WeirdModel WeirdModel);
+
+    public record WeirdModelContainerMapped(int Id, WeirdModelMapped WeirdModel);
+
     [Mappit]
     public partial class CustomMappingTestMapper
     {
         [MapMember(nameof(SourceModel.CreatedOn), nameof(TargetModel.DateCreated))]
-        private TypeMapping<SourceModel, TargetModel> sourceToTarget;
+        public partial TargetModel MapSourceToTarget(SourceModel source);
 
         [MapMember(nameof(SourceStatus.Active), nameof(TargetStatus.Enabled))]
         [MapMember(nameof(SourceStatus.Inactive), nameof(TargetStatus.Disabled))]
         [MapMember(nameof(SourceStatus.Pending), nameof(TargetStatus.AwaitingConfirmation))]
-        private TypeMapping<SourceStatus, TargetStatus> sourceStatus;
+        public partial TargetStatus MapSourceStatus(SourceStatus source);
 
-        partial void InitializeCustomMappings()
-        {
-            RegisterMapping(new WeirdMapping());
-        }
+        public partial WeirdModelContainerMapped Map(WeirdModelContainer source);
 
-        private class WeirdMapping : TypeMapping<WeirdModel, WeirdModel>
+        // Custom implementation for some bespoke weird mapping - in this case we're 
+        // reversing the string on one of the properties.
+        public WeirdModelMapped MapWeirdModel(WeirdModel source)
         {
-            public override WeirdModel Map(IMapper mapper, WeirdModel source)
-            {
-                return new WeirdModel { Name = new string([.. source.Name.Reverse()]) };
-            }
+            return new WeirdModelMapped(new string(source.Name.Reverse().ToArray()));
         }
     }
 }

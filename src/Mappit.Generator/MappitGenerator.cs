@@ -1,8 +1,6 @@
 using System.Linq;
 using System.Text;
 
-using Mappit.Generator.CodeSnippets;
-
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -10,11 +8,6 @@ using Microsoft.CodeAnalysis.Text;
 
 namespace Mappit.Generator
 {
-
-    internal static class Attributes
-    {
-        public const string MappitAttribute = "Mappit.MappitAttribute";
-    }
 
     [Generator]
     public partial class MappitGenerator : IIncrementalGenerator
@@ -27,7 +20,7 @@ namespace Mappit.Generator
                     // Search for partial class declarations
                     predicate: static (s, _) => s is ClassDeclarationSyntax c &&
                         c.Modifiers.Any(m => m.IsKind(SyntaxKind.PartialKeyword)),
-                    // The first transform grabs all the 
+                    // Transform to get mapper class info
                     transform: static (ctx, _) => GetMapperClassInfo(ctx))
                 .Where(static m => m != null);
 
@@ -50,46 +43,22 @@ namespace Mappit.Generator
             source.AppendLine($"namespace {validatedMap.Namespace}");
             source.AppendLine("{");
 
+            // Generate interface first
+            GenerateMapperInterface(source, validatedMap);
+
             // Generate partial class implementation
-            source.AppendLine($"    public partial class {validatedMap.ClassName} : global::Mappit.IMapper");
+            source.AppendLine($"    public partial class {validatedMap.ClassName} : I{validatedMap.ClassName}");
             source.AppendLine("    {");
 
-            // Generate private fields
-            source.AppendLine("        private readonly global::System.Collections.Generic.Dictionary<global::System.Type, global::System.Collections.Generic.Dictionary<global::System.Type, global::Mappit.TypeMapping>> _mappings;");
-            
-            // Generate constructor that initializes all mappings
-            source.AppendLine($"        public {validatedMap.ClassName}()");
-            source.AppendLine("        {");
-            source.AppendLine("            // Initialize mapping dictionary");
-            source.AppendLine("            _mappings = new global::System.Collections.Generic.Dictionary<global::System.Type, global::System.Collections.Generic.Dictionary<global::System.Type, global::Mappit.TypeMapping>>();");
-            source.AppendLine("            // Initialize user-defined mappings");
-            source.AppendLine("            InitializeCustomMappings();");
-            source.AppendLine();
-            source.AppendLine("            // Initialize all mappings");
-
-            // Generate mapping implementations and initialization
-            foreach (var mapping in validatedMap.EnumMappings.Concat<ValidatedMappingInfo>(validatedMap.TypeMappings))
-            {
-                // Initialize and register each mapping
-                source.AppendLine($"            {mapping.FieldName} = new {mapping.MappingImplementationTypeName}();");
-                source.AppendLine($"            RegisterMapping({mapping.FieldName});");
-            }
-
-            source.AppendLine("        }");
-
-            // Add the RegisterMapping methods from MapperBase
-            source.AppendLine(CodeSnippetProvider.GetCodeSnippet("CommonMapperMethods.cs"));
-
-            // Generate mapping class implementations for each type mapping declaration
-            foreach (var mapping in validatedMap.TypeMappings)
-            {
-                GenerateTypeMappingClass(source, validatedMap, mapping);
-            }
-
-            // Generate mapping class implementations for each enum mapping declaration
+            // Implementation for each mapping method
             foreach (var mapping in validatedMap.EnumMappings)
             {
-                GenerateEnumMappingClass(source, mapping);
+                GenerateEnumMappingMethod(source, mapping);
+            }
+
+            foreach (var mapping in validatedMap.TypeMappings)
+            {
+                GenerateTypeMappingMethod(source, validatedMap, mapping);
             }
 
             source.AppendLine("    }");
@@ -99,37 +68,76 @@ namespace Mappit.Generator
             context.AddSource($"{validatedMap.ClassName}.g.cs", SourceText.From(source.ToString(), Encoding.UTF8));
         }
 
+        private static void GenerateMapperInterface(StringBuilder source, ValidatedMapperClassInfo validatedMap)
+        {
+            source.AppendLine($"    /// <summary>");
+            source.AppendLine($"    /// Interface for {validatedMap.ClassName} class");
+            source.AppendLine($"    /// </summary>");
+            source.AppendLine($"    public interface I{validatedMap.ClassName}");
+            source.AppendLine("    {");
+
+            // Generate interface methods for each mapping type
+            foreach (var mapping in validatedMap.EnumMappings)
+            {
+                source.AppendLine($"        /// <summary>");
+                source.AppendLine($"        /// Maps {mapping.SourceType.Name} to {mapping.TargetType.Name}");
+                source.AppendLine($"        /// </summary>");
+                source.AppendLine($"        {mapping.TargetType.Name} {mapping.MethodName}({mapping.SourceType.Name} source);");
+                source.AppendLine();
+            }
+
+            foreach (var mapping in validatedMap.TypeMappings)
+            {
+                source.AppendLine($"        /// <summary>");
+                source.AppendLine($"        /// Maps {mapping.SourceType.Name} to {mapping.TargetType.Name}");
+                source.AppendLine($"        /// </summary>");
+                source.AppendLine($"        {mapping.TargetType.Name} {mapping.MethodName}({mapping.SourceType.Name} source);");
+                source.AppendLine();
+            }
+
+            source.AppendLine("    }");
+            source.AppendLine();
+        }
+
         private static void EmitSourcePropertyReference(StringBuilder source, ValidatedMapperClassInfo classInfo, ValidatedMappingMemberInfo member)
         {
-            if (classInfo.IsMappedType(member.SourceProperty.Type, member.TargetProperty.Type))
+            if (classInfo.TryGetMappedType(member.SourceProperty.Type, member.TargetProperty.Type, out var mapping))
             {
-                source.Append($"mapper.Map<{member.TargetProperty.Type.Name}>(typedSource.{member.SourceProperty.Name})");
+                source.Append($"{mapping!.MethodName}(source.{member.SourceProperty.Name})");
             }
             else
             {
-                source.Append($"typedSource.{member.SourceProperty.Name}");
+                source.Append($"source.{member.SourceProperty.Name}");
             }
         }
 
-        private static void GenerateTypeMappingClass(StringBuilder source, ValidatedMapperClassInfo classInfo, ValidatedMappingTypeInfo mapping)
+        private static void GenerateTypeMappingMethod(StringBuilder source, ValidatedMapperClassInfo classInfo, ValidatedMappingTypeInfo mapping)
         {
+            if (!mapping.RequiresGeneration)
+            {
+                return;
+            }
+
             var sourceTypeName = mapping.SourceType.Name;
-            var destTypeName = mapping.TargetType.Name;
+            var targetTypeName = mapping.TargetType.Name;
 
             source.AppendLine();
-            source.AppendLine($"        // Implement mapping from {sourceTypeName} to {destTypeName}");
-            source.AppendLine($"        private sealed class {mapping.MappingImplementationTypeName} : global::Mappit.TypeMapping<{sourceTypeName}, {destTypeName}>");
+            source.AppendLine($"        // Implementation of mapping from {sourceTypeName} to {targetTypeName}");
+            source.AppendLine($"        public partial {targetTypeName} {mapping.MethodName}({sourceTypeName} source)");
             source.AppendLine("        {");
-            source.AppendLine($"            public override {destTypeName} Map(global::Mappit.IMapper mapper, {sourceTypeName} typedSource)");
+            source.AppendLine("            if (source == null)");
             source.AppendLine("            {");
+            source.AppendLine("                return default;");
+            source.AppendLine("            }");
+            source.AppendLine();
 
             // Start object initialization
-            source.AppendLine($"                return new {destTypeName}");
+            source.AppendLine($"            return new {targetTypeName}");
 
             if (mapping.Constructor.Parameters.Length > 0)
             {
                 // Generate constructor arguments
-                source.Append("                (");
+                source.Append("            (");
 
                 for (int i = 0; i < mapping.Constructor.Parameters.Length; i++)
                 {
@@ -148,18 +156,18 @@ namespace Mappit.Generator
             else
             {
                 // Default constructor; no args
-                source.AppendLine("                ()");
+                source.AppendLine("            ()");
             }
 
             if (mapping.MemberMappings.Values.Any(m => m.MappingKind == PropertyMappingKind.Initialization))
             {
                 // Start object initializer
-                source.AppendLine("                {");
+                source.AppendLine("            {");
 
                 // Handle custom property mappings first (skip those already set by constructor)
                 foreach (var propertyMapping in mapping.MemberMappings.Values.Where(x => x.MappingKind == PropertyMappingKind.Initialization))
                 {
-                    source.Append($"                    {propertyMapping.TargetProperty.Name} = ");
+                    source.Append($"                {propertyMapping.TargetProperty.Name} = ");
                     EmitSourcePropertyReference(source, classInfo, propertyMapping);
                     source.AppendLine(",");
                 }
@@ -169,40 +177,41 @@ namespace Mappit.Generator
                 source.AppendLine();
 
                 // Close the object initializer
-                source.Append("                }");
+                source.Append("            }");
             }
 
             // Add the semicolon after the initializer or constructor.
             source.AppendLine(";");
 
-            source.AppendLine("            }");
             source.AppendLine("        }");
         }
 
-        private static void GenerateEnumMappingClass(StringBuilder source, ValidatedMappingEnumInfo mapping)
+        private static void GenerateEnumMappingMethod(StringBuilder source, ValidatedMappingEnumInfo mapping)
         {
+            if (!mapping.RequiresGeneration)
+            {
+                return;
+            }
+
             var sourceTypeName = mapping.SourceType.Name;
-            var destTypeName = mapping.TargetType.Name;
+            var targetTypeName = mapping.TargetType.Name;
 
             source.AppendLine();
-            source.AppendLine($"        // Implement mapping from {sourceTypeName} to {destTypeName}");
-            source.AppendLine($"        private sealed class {mapping.MappingImplementationTypeName} : global::Mappit.TypeMapping<{sourceTypeName}, {destTypeName}>");
+            source.AppendLine($"        // Implementation of mapping from {sourceTypeName} to {targetTypeName}");
+            source.AppendLine($"        public partial {targetTypeName} {mapping.MethodName}({sourceTypeName} source)");
             source.AppendLine("        {");
-            source.AppendLine($"            public override {destTypeName} Map(global::Mappit.IMapper mapper, {sourceTypeName} source)");
+            source.AppendLine($"            return source switch");
             source.AppendLine("            {");
-            source.AppendLine($"                return source switch");
-            source.AppendLine("                {");
 
             // Generate enum case mappings
             foreach (var enumCase in mapping.MemberMappings)
             {
-                source.AppendLine($"                    {sourceTypeName}.{enumCase.SourceField.Name} => {destTypeName}.{enumCase.TargetField.Name},");
+                source.AppendLine($"                {sourceTypeName}.{enumCase.SourceField.Name} => {targetTypeName}.{enumCase.TargetField.Name},");
             }
 
             // Add a default case to handle unmapped values
-            source.AppendLine($"                    _ => throw new global::System.ArgumentOutOfRangeException(nameof(source), $\"Invalid enum value {{source}}\")");
-            source.AppendLine("                };");
-            source.AppendLine("            }");
+            source.AppendLine($"                _ => throw new global::System.ArgumentOutOfRangeException(nameof(source), $\"Invalid enum value {{source}}\")");
+            source.AppendLine("            };");
             source.AppendLine("        }");
         }
     }

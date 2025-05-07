@@ -6,7 +6,7 @@ namespace Mappit.Tests
 {
     public class ConstructorMappingTests
     {
-        private readonly ConstructorTestMapper _mapper;
+        private readonly IConstructorTestMapper _mapper;
 
         public ConstructorMappingTests()
         {
@@ -25,7 +25,7 @@ namespace Mappit.Tests
             };
 
             // Act
-            var result = _mapper.Map<TargetWithConstructor>(source);
+            var result = _mapper.MapSourceToTarget(source);
 
             // Assert
             Assert.Equal(source.Id, result.Id);
@@ -47,7 +47,7 @@ namespace Mappit.Tests
             };
 
             // Act
-            var result = _mapper.Map<TargetWithMixedInitialization>(source);
+            var result = _mapper.MapSourceToMixed(source);
 
             // Assert
             // These properties should be set via constructor
@@ -72,7 +72,7 @@ namespace Mappit.Tests
             };
 
             // Act
-            var result = _mapper.Map<TargetWithConstructor>(source);
+            var result = _mapper.MapCaseSensitiveSourceToTarget(source);
 
             // Assert
             Assert.Equal(source.id, result.Id);
@@ -91,7 +91,7 @@ namespace Mappit.Tests
             };
 
             // Act
-            var result = _mapper.Map<TargetWithRequiredConstructor>(source);
+            var result = _mapper.MapLimitedToRequired(source);
 
             // Assert
             Assert.Equal(source.Id, result.Id);
@@ -110,7 +110,7 @@ namespace Mappit.Tests
             };
 
             // Act
-            var result = _mapper.Map<TargetWithConstructor>(source);
+            var result = _mapper.MapCustomPropertiesToTarget(source);
 
             // Assert
             Assert.Equal(source.Identifier, result.Id);
@@ -194,17 +194,17 @@ namespace Mappit.Tests
     [Mappit]
     public partial class ConstructorTestMapper
     {
-        private readonly TypeMapping<SourceWithProperties, TargetWithConstructor> _sourceToTargetMapping;
+        public partial TargetWithConstructor MapSourceToTarget(SourceWithProperties source);
 
-        private readonly TypeMapping<SourceWithProperties, TargetWithMixedInitialization> _sourceToMixedMapping;
+        public partial TargetWithMixedInitialization MapSourceToMixed(SourceWithProperties source);
 
-        private readonly TypeMapping<SourceWithDifferentCasing, TargetWithConstructor> _casingTestMapping;
+        public partial TargetWithConstructor MapCaseSensitiveSourceToTarget(SourceWithDifferentCasing source);
 
-        private readonly TypeMapping<SourceWithLimitedProperties, TargetWithRequiredConstructor> _limitedPropsMapping;
+        public partial TargetWithRequiredConstructor MapLimitedToRequired(SourceWithLimitedProperties source);
 
         [MapMember("Identifier", "Id")]
         [MapMember("Title", "Name")]
         [MapMember("Text", "Description")]
-        private readonly TypeMapping<SourceWithCustomProperties, TargetWithConstructor> _customPropsMapping;
+        public partial TargetWithConstructor MapCustomPropertiesToTarget(SourceWithCustomProperties source);
     }
 }

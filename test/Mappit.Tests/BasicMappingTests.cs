@@ -3,11 +3,9 @@ using Xunit;
 
 namespace Mappit.Tests
 {
-
-
     public class BasicMappingTests
     {
-        private readonly IMapper _mapper;
+        private readonly ITestMapper _mapper;
 
         public BasicMappingTests()
         {
@@ -29,7 +27,7 @@ namespace Mappit.Tests
             };
 
             // Act
-            var dto = _mapper.Map<PersonDto>(person);
+            var dto = _mapper.Map(person);
 
             // Assert
             Assert.Equal(person.Id, dto.Id);
@@ -53,7 +51,7 @@ namespace Mappit.Tests
             };
 
             // Act
-            var person = _mapper.Map<Person>(dto);
+            var person = _mapper.Map(dto);
 
             // Assert
             Assert.Equal(dto.Id, person.Id);
@@ -65,35 +63,58 @@ namespace Mappit.Tests
         }
 
         [Fact]
-        public void Map_UsingGenericOverload_ShouldMapCorrectly()
-        {
-            // Arrange
-            var employee = new Employee
-            {
-                Id = 3,
-                FirstName = "Bob",
-                LastName = "Johnson",
-                Department = "Engineering",
-                Salary = 85000
-            };
-
-            // Act - Using the generic overload that specifies source and target types
-            var dto = _mapper.Map<Employee, EmployeeDto>(employee);
-
-            // Assert
-            Assert.Equal(employee.Id, dto.Id);
-            Assert.Equal(employee.FirstName, dto.FirstName);
-            Assert.Equal(employee.LastName, dto.LastName);
-            Assert.Equal(employee.Department, dto.Department);
-            Assert.Equal(employee.Salary, dto.Salary);
-        }
-
-        [Fact]
         public void Map_NullSource_ShouldReturnDefault()
         {
             // Act & Assert
-            Assert.Null(_mapper.Map<PersonDto>(null));
-            Assert.Null(_mapper.Map<Person, PersonDto>(null));
+            Assert.Null(_mapper.Map((Person?)null));
         }
+    }
+
+    public class Person
+    {
+        public int Id { get; set; }
+        public required string FirstName { get; set; }
+        public required string LastName { get; set; }
+        public DateTime BirthDate { get; set; }
+        public int Age { get; set; }
+        public required string Email { get; set; }
+    }
+
+    public class PersonDto
+    {
+        public int Id { get; set; }
+        public required string FirstName { get; set; }
+        public required string LastName { get; set; }
+        public DateTime BirthDate { get; set; }
+        public int Age { get; set; }
+        public required string Email { get; set; }
+    }
+
+    public class Employee
+    {
+        public int Id { get; set; }
+        public required string FirstName { get; set; }
+        public required string LastName { get; set; }
+        public required string Department { get; set; }
+        public decimal Salary { get; set; }
+    }
+
+    public class EmployeeDto
+    {
+        public int Id { get; set; }
+        public required string FirstName { get; set; }
+        public required string LastName { get; set; }
+        public required string Department { get; set; }
+        public decimal Salary { get; set; }
+    }
+
+    [Mappit]
+    public partial class TestMapper
+    {
+        public partial PersonDto Map(Person source);
+
+        public partial Person Map(PersonDto source);
+
+        public partial EmployeeDto Map(Employee source);
     }
 }

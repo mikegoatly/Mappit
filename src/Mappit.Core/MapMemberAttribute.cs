@@ -3,16 +3,16 @@ using System;
 namespace Mappit
 {
     /// <summary>
-    /// Attribute to define custom mapping between types.
+    /// Attribute to define custom member mapping between types.
     /// </summary>
-    [AttributeUsage(AttributeTargets.Field, AllowMultiple = true)]
+    [AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
     public sealed class MapMemberAttribute : Attribute
     {
         /// <summary>
-        /// Creates a new instance of MapEnumValueAttribute
+        /// Creates a new instance of MapMemberAttribute
         /// </summary>
-        /// <param name="sourceName">Source enum value name</param>
-        /// <param name="targetName">Target enum value name</param>
+        /// <param name="sourceName">Source member name</param>
+        /// <param name="targetName">Target member name</param>
         public MapMemberAttribute(string sourceName, string targetName)
         {
             SourceName = sourceName ?? throw new ArgumentNullException(nameof(sourceName));
@@ -20,12 +20,12 @@ namespace Mappit
         }
 
         /// <summary>
-        /// Source enum value name
+        /// Source member name
         /// </summary>
         public string SourceName { get; }
 
         /// <summary>
-        /// Target enum value name
+        /// Target member name
         /// </summary>
         public string TargetName { get; }
     }

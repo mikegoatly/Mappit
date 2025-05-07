@@ -10,7 +10,7 @@ namespace Mappit.Examples
         public static void Main(string[] args)
         {
             // Create a mapper instance
-            IMapper mapper = new Mapper();
+            var mapper = new Mapper();
 
             // Create a source object
             var foo = new Foo
@@ -21,11 +21,8 @@ namespace Mappit.Examples
                 IsActive = true
             };
 
-            // Map to target type
-            var fooRepresentation = mapper.Map<FooRepresentation>(foo);
-
-            // Alternatively, you can use the generic version
-            var fooRepresentation2 = mapper.Map<Foo, FooRepresentation>(foo);
+            // Map to target type using the strongly-typed method
+            var fooRepresentation = mapper.Map(foo);
 
             Console.WriteLine($"Mapped object: Id={fooRepresentation.Id}, Name={fooRepresentation.Name}");
         }
