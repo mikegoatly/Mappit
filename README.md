@@ -132,11 +132,11 @@ public partial class CustomMappingTestMapper
 ## Known limitations
 
 * Classes containing properties with properties differing only by case are not supported.
-* No support for collections or dictionaries (IEnumerable, IList, etc.) (yet!)
-* Recursive object graphs won't work and your code will hang forever. I'll get to this eventually!
+* No support for ~~collections or~~ dictionaries (IEnumerable, IList, etc.) (yet!)
+* Recursive object graphs won't work and your code will likely hang forever. I'll get to this too!
 
 ## Todo
 
 * Opt in to reverse mappings
-* Support for collections and dictionaries (IEnumerable, IList, etc.)
+* Support for ~~collections and~~ dictionaries
 * Recursion handling

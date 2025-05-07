@@ -10,60 +10,70 @@ namespace Mappit.Generator
     {
         private static MapperClassInfo? GetMapperClassInfo(GeneratorAttributeSyntaxContext context)
         {
-            if (context.TargetNode is not ClassDeclarationSyntax classDeclarationSyntax)
-            {
-                return null;
-            }
-
-            var semanticModel = context.SemanticModel;
-            var classSymbol = semanticModel.GetDeclaredSymbol(classDeclarationSyntax);
-            if (classSymbol is null)
-            {
-                return null;
-            }
-
-            // Create the mapper class info with the class-level config
-            var mapperClass = CreateMapperClassInfo(context, classSymbol);
-
-            // Find partial methods starting with "Map"
-            foreach (var member in classSymbol.GetMembers())
-            {
-                // TODO report warnings for "Map*" methods that don't match the pattern
-
-                if (member is IMethodSymbol methodSymbol && 
-                    methodSymbol.Name.StartsWith("Map", StringComparison.Ordinal) &&
-                    methodSymbol.Parameters.Length == 1 &&
-                    methodSymbol.ReturnType is ITypeSymbol returnType)
+            //try
+            //{
+                if (context.TargetNode is not ClassDeclarationSyntax classDeclarationSyntax)
                 {
-                    // Find the method declaration in the syntax tree
-                    var methodDeclaration = classDeclarationSyntax.DescendantNodes()
-                        .OfType<MethodDeclarationSyntax>()
-                        .FirstOrDefault(m => m.Identifier.Text == methodSymbol.Name);
+                    return null;
+                }
 
-                    if (methodDeclaration == null)
+                var semanticModel = context.SemanticModel;
+                var classSymbol = semanticModel.GetDeclaredSymbol(classDeclarationSyntax);
+                if (classSymbol is null)
+                {
+                    return null;
+                }
+
+                // Create the mapper class info with the class-level config
+                var mapperClass = CreateMapperClassInfo(context, classSymbol);
+
+                // Find partial methods starting with "Map"
+                foreach (var member in classSymbol.GetMembers())
+                {
+                    // TODO report warnings for "Map*" methods that don't match the pattern
+
+                    if (member is IMethodSymbol methodSymbol &&
+                        methodSymbol.Name.StartsWith("Map", StringComparison.Ordinal) &&
+                        methodSymbol.Parameters.Length == 1 &&
+                        methodSymbol.ReturnType is ITypeSymbol returnType)
                     {
-                        continue;
-                    }
+                        // Find the method declaration in the syntax tree
+                        var methodDeclaration = classDeclarationSyntax.DescendantNodes()
+                            .OfType<MethodDeclarationSyntax>()
+                            .FirstOrDefault(m => m.Identifier.Text == methodSymbol.Name);
 
-                    var sourceType = methodSymbol.Parameters[0].Type;
-                    var destType = returnType;
+                        if (methodDeclaration == null)
+                        {
+                            continue;
+                        }
 
-                    var mappingInfo = BuildMapping(semanticModel, methodDeclaration, methodSymbol, sourceType, destType);
+                        var sourceType = methodSymbol.Parameters[0].Type;
+                        var destType = returnType;
 
-                    // Apply any configuration attributes applied to the method, combined with the class-level settings
-                    ApplyMappingConfigForType(mapperClass, methodSymbol, mappingInfo);
+                        var mappingInfo = BuildMapping(semanticModel, methodDeclaration, methodSymbol, sourceType, destType);
 
-                    mapperClass.Mappings.Add(mappingInfo);
+                        // Apply any configuration attributes applied to the method, combined with the class-level settings
+                        ApplyMappingConfigForType(mapperClass, methodSymbol, mappingInfo);
 
-                    if (methodSymbol.GetAttributes().Any(a => a.AttributeClass?.Name == nameof(ReverseMapAttribute)))
-                    {
-                        // Create a reverse mapping for the method
-                        mapperClass.Mappings.Add(mappingInfo.BuildReverseMapping());
+                        mapperClass.Mappings.Add(mappingInfo);
+
+                        if (methodSymbol.GetAttributes().Any(a => a.AttributeClass?.Name == nameof(ReverseMapAttribute)))
+                        {
+                            // Create a reverse mapping for the method
+                            mapperClass.Mappings.Add(mappingInfo.BuildReverseMapping());
+                        }
                     }
                 }
-            }
 
-            return mapperClass.Mappings.Count > 0 ? mapperClass : null;
+                return mapperClass.Mappings.Count > 0 ? mapperClass : null;
+//            }
+//            catch (Exception ex)
+//            {
+//#if DEBUG
+//                System.Diagnostics.Debugger.Launch();
+//                return null;
+//#endif
+//            }
         }
 
         private static void ApplyMappingConfigForType(MapperClassInfo mapperClass, IMethodSymbol methodSymbol, MappingTypeInfo mappingInfo)
