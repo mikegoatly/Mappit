@@ -45,7 +45,7 @@ namespace Mappit.Tests.MappingGenerationVerification
                 AdditionalHashSet = new HashSet<string> { "Item26", "Item27" }
             };
 
-            var mapper = new CollectionMap();
+            var mapper = new CollectionMapper();
             var result = mapper.Map(source);
 
             Assert.NotNull(result);
@@ -54,9 +54,9 @@ namespace Mappit.Tests.MappingGenerationVerification
     }
 
     [Mappit]
-    public partial class CollectionMap
+    public partial class CollectionMapper
     {
-        //public partial DictionaryTarget Map(DictionarySource source);
+        // public partial DictionaryTarget Map(DictionarySource source);
         public partial CollectionTarget Map(CollectionSource source);
         public partial CollectionEntityMapped Map(CollectionEntity source);
     }

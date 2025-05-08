@@ -111,6 +111,16 @@ namespace Mappit.Generator
 
         private static void EmitSourcePropertyReference(StringBuilder source, ValidatedMapperClassInfo classInfo, ValidatedMappingMemberInfo member)
         {
+            if (!member.IsValid)
+            {
+                // When we haven't been able to resolve the mapping, we need to emit a placeholder.
+                // We've already emitted an error message, so we can just emit a comment here.
+                // Doing this means we limit the number of additional compiler errors reported in the generated code.
+                source.AppendLine("// TODO: Unable to resolve mapping for {member.SourceProperty.Name} to {member.TargetProperty.Name}");
+                source.Append($"            default");
+                return;
+            }
+
             // Handle based on the property mapping kind
             switch (member.PropertyMappingKind)
             {

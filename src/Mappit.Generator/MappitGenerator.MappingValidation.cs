@@ -117,11 +117,12 @@ namespace Mappit.Generator
                     bool isCompatible = AreCompatibleTypes(mapperClass, sourceProperty.Type, targetProperty.Type);
                     if (!isCompatible)
                     {
+                        validatedMapping.MemberMappings[targetProperty.Name] = ValidatedMappingMemberInfo.Invalid(sourceProperty, targetProperty);
                         ReportIncompatibleSourceAndTargetPropertyTypesDiagnostic(context, sourceProperty, targetProperty, propertyMapping.SyntaxNode);
                     }
                     else
                     {
-                        validatedMapping.MemberMappings[targetProperty.Name] = new ValidatedMappingMemberInfo(sourceProperty, targetProperty);
+                        validatedMapping.MemberMappings[targetProperty.Name] = ValidatedMappingMemberInfo.Valid(sourceProperty, targetProperty);
                     }
                 }
             }
@@ -277,6 +278,8 @@ namespace Mappit.Generator
                         // If we're not ignoring missing properties, report a diagnostic
                         if (!mappingInfo.IgnoreMissingPropertiesOnTarget)
                         {
+                            validatedMapping.MemberMappings[targetMember.Name] = ValidatedMappingMemberInfo.Invalid(sourceMember, targetMember);
+
                             ReportDiagnostic(
                                 context,
                                 MappitErrorCode.ImplicitMappedTargetPropertyNotFound,
@@ -291,11 +294,12 @@ namespace Mappit.Generator
                         // Check if property types are compatible
                         if (!AreCompatibleTypes(mapperClass, sourceMember.Type, targetMember.Type))
                         {
+                            validatedMapping.MemberMappings[targetMember.Name] = ValidatedMappingMemberInfo.Invalid(sourceMember, targetMember);
                             ReportIncompatibleSourceAndTargetPropertyTypesDiagnostic(context, sourceMember, targetMember, mappingInfo.MethodDeclaration);
                         }
                         else
                         {
-                            var memberInfo = new ValidatedMappingMemberInfo(sourceMember, targetMember);
+                            var memberInfo = ValidatedMappingMemberInfo.Valid(sourceMember, targetMember);
                             ConfigureCollectionMappingInfo(mapperClass, sourceMember, targetMember, memberInfo);
                             validatedMapping.MemberMappings[targetMember.Name] = memberInfo;
                         }
