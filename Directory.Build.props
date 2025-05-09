@@ -8,5 +8,6 @@
 		<Copyright>Copyright Mike Goatly</Copyright>
 		<DebugType>embedded</DebugType>
 		<Nullable>enable</Nullable>
+		<TreatWarningsAsErrors>True</TreatWarningsAsErrors>
 	</PropertyGroup>
 </Project>
