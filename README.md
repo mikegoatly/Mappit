@@ -12,6 +12,25 @@ So the benefits of Mappit are:
 * No runtime reflection
 * No runtime performance overhead - mappings are pretty much what you'd write by hand
 
+## Supported mapping features
+
+### Properties
+* **Implicit property mappings** (properties with matching names and compatible types)
+* **Custom property mappings** - mapping from one property to another property with a different name
+
+### Enums
+* **Implicit enum mappings** where all the enum names match
+* **Custom enum value mappings** - mapping from one enum member to another
+
+### Collections and Dictionaries
+* **Implicit collection mapping** - where a mapped type has a property that's a collection or dictionary, Mappit will create an implicit mapping for the collection elements or dictionary keys/values.
+* **Explicit collection mapping** - registering a collection mapping in your mapper class, e.g. `IList<FooRepresentation> Map(IEnumerable<Foo> source)` will automatically create a mapping for the collection elements.
+  The same applies for both keys and values of dictionary types.
+
+### Type construction
+* **Constructor initialization**, including constructors that only cover some of the properties. Any remaining properties will be initialized via their setters.
+* **Missing properties on the target type** - by default you'll get compile-time errors, but can opt in to ignore them.
+
 ## Getting started
 
 ```
@@ -56,9 +75,10 @@ public static class Program
 
 public record Foo(int Id, string Name, DateTime CreatedDate, bool IsActive);
 
-public class FooRepresentation
+// Notice the mix of properties and constructor parameters
+public class FooRepresentation(int id)
 {
-    public int Id { get; set; }
+    public int Id { get; } = id;
     public required string Name { get; set; }
     public DateTime CreatedDate { get; set; }
     public bool IsActive { get; set; }
@@ -79,9 +99,9 @@ public partial class DemoMapper : IDemoMapper
             return default;
         }
 
-        return new global::Mappit.Examples.FooRepresentation()
+        return new global::Mappit.Examples.FooRepresentation(
+            source.Id)
         {
-            Id = source.Id,
             Name = source.Name,
             CreatedDate = source.CreatedDate,
             IsActive = source.IsActive,
@@ -104,15 +124,6 @@ public partial class DemoMapper : IDemoMapper
 Some people like interfaces for everything, so every generated mapper also implements its own interface - the above example has a generated interface `IDempMapper`.
 
 If you like, you can have multiple mapper classes with different names. They will each end up with their own interface, and you can use them independently.
-
-## Supported mappings
-
-* Implicit property mappings (properties with matching names and compatible types)
-* Implicit enum mappings where all the enum names match
-* Custom property mappings 
-* Custom enum value mappings
-* Constructor initialization, including constructors that only cover some of the properties. Any remaining properties will be initialized via their setters.
-* Control over missing properties on the target type - by default you'll get compile-time errors, but can opt in to ignore them.
 
 ### Custom Property Mapping
 

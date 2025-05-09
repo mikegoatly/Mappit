@@ -42,9 +42,9 @@ namespace Mappit.Examples
 
     public record Foo(int Id, string Name, DateTime CreatedDate, bool IsActive);
 
-    public class FooRepresentation
+    public class FooRepresentation(int id)
     {
-        public int Id { get; set; }
+        public int Id { get; } = id;
         public required string Name { get; set; }
         public DateTime CreatedDate { get; set; }
         public bool IsActive { get; set; }
