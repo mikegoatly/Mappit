@@ -51,12 +51,77 @@ namespace Mappit.Tests.MappingGenerationVerification
             Assert.NotNull(result);
             Assert.Equivalent(expected, result);
         }
+
+        [Fact]
+        public void MappingDictionaries_ShouldCopyDataSuccessfully()
+        {
+            var source = new DictionarySource
+            {
+                Dictionary = new Dictionary<string, string>
+                {
+                    { "Key1", "Value1" },
+                    { "Key2", "Value2" }
+                },
+                EntityDictionary = new Dictionary<string, CollectionEntity>
+                {
+                    { "Key3", new CollectionEntity(1) },
+                    { "Key4", new CollectionEntity(2) }
+                },
+                EntityArrayDictionary = new Dictionary<string, CollectionEntity[]>
+                {
+                    { "Key5", new[] { new CollectionEntity(3), new CollectionEntity(4) } }
+                },
+                IDictionaryInterface = new Dictionary<string, string>
+                {
+                    { "Key6", "Value3" },
+                    { "Key7", "Value4" }
+                },
+                IReadOnlyDictionaryInterface = new Dictionary<string, string>
+                {
+                    { "Key8", "Value5" },
+                    { "Key9", "Value6" }
+                }
+            };
+
+            var expected = new DictionaryTarget
+            {
+                Dictionary = new Dictionary<string, string>
+                {
+                    { "Key1", "Value1" },
+                    { "Key2", "Value2" }
+                },
+                EntityDictionary = new Dictionary<string, CollectionEntityMapped>
+                {
+                    { "Key3", new CollectionEntityMapped(1) },
+                    { "Key4", new CollectionEntityMapped(2) }
+                },
+                EntityArrayDictionary = new Dictionary<string, CollectionEntityMapped[]>
+                {
+                    { "Key5", new[] { new CollectionEntityMapped(3), new CollectionEntityMapped(4) } }
+                },
+                IDictionaryInterface = new Dictionary<string, string>
+                {
+                    { "Key6", "Value3" },
+                    { "Key7", "Value4" }
+                },
+                IReadOnlyDictionaryInterface = new Dictionary<string, string>
+                {
+                    { "Key8", "Value5" },
+                    { "Key9", "Value6" }
+                }
+            };
+
+            var mapper = new CollectionMapper();
+            var result = mapper.Map(source);
+            Assert.NotNull(result);
+            Assert.Equivalent(expected, result);
+        }
     }
 
     [Mappit]
     public partial class CollectionMapper
     {
-        // public partial DictionaryTarget Map(DictionarySource source);
+        public partial DictionaryTarget Map(DictionarySource source);
         public partial CollectionTarget Map(CollectionSource source);
         public partial CollectionEntityMapped Map(CollectionEntity source);
     }

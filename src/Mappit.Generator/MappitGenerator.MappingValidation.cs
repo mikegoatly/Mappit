@@ -77,16 +77,20 @@ namespace Mappit.Generator
             validatedMapperClassInfo.EnumMappings.Add(validatedMapping);
         }
 
-        private static void ValidateTypeMapping(SourceProductionContext context, MapperClassInfo mapperClass, MappingTypeInfo mapping, ValidatedMapperClassInfo validatedMapperClassInfo)
+        private static void ValidateTypeMapping(SourceProductionContext context, MapperClassInfo mapperClass, MappingTypeInfo mapping, ValidatedMapperClassInfo validatedMapperClass)
         {
             var validatedMapping = new ValidatedMappingTypeInfo(mapping);
 
+            // We only consider source properties that are:
+            // * Publicly accessible
+            // * Not static
+            // * Not write-only (i.e. they have a getter)
             var sourceProperties = mapping.SourceType.GetMembers().OfType<IPropertySymbol>()
-                .Where(f => !f.IsStatic && !f.IsWriteOnly && !f.IsImplicitlyDeclared)
+                .Where(f => f.DeclaredAccessibility == Accessibility.Public && !f.IsStatic && !f.IsWriteOnly)
                 .ToDictionary(x => x.Name, StringComparer.OrdinalIgnoreCase);
 
             var targetProperties = mapping.TargetType.GetMembers().OfType<IPropertySymbol>()
-                .Where(f => !f.IsStatic && !f.IsImplicitlyDeclared)
+                .Where(f => f.DeclaredAccessibility == Accessibility.Public && !f.IsStatic)
                 .ToDictionary(x => x.Name, StringComparer.OrdinalIgnoreCase);
 
             // First validate any custom mappings that have been provided
@@ -127,11 +131,11 @@ namespace Mappit.Generator
                 }
             }
 
-            ValidateRemainingPropertyMappings(context, mapperClass, mapping, validatedMapping, sourceProperties, targetProperties);
+            ValidateRemainingPropertyMappings(context, mapperClass, validatedMapperClass, mapping, validatedMapping, sourceProperties, targetProperties);
 
             if (ValidateConstructionRequirements(context, mapperClass, validatedMapping))
             {
-                validatedMapperClassInfo.TypeMappings.Add(validatedMapping);
+                validatedMapperClass.TypeMappings.Add(validatedMapping);
             }
         }
 
@@ -171,7 +175,7 @@ namespace Mappit.Generator
             {
                 if (constructorParams.TryGetValue(propertyMapping.TargetProperty.Name, out var constructorParam))
                 {
-                    propertyMapping.TargetMapping = TargetMappingKind.Constructor;
+                    propertyMapping.TargetMapping = TargetMapping.Constructor;
 
                     if (!AreCompatibleTypes(mapperClass, propertyMapping.SourceProperty.Type, constructorParam.Type))
                     {
@@ -200,7 +204,7 @@ namespace Mappit.Generator
                         return false;
                     }
 
-                    propertyMapping.TargetMapping = TargetMappingKind.Initialization;
+                    propertyMapping.TargetMapping = TargetMapping.Initialization;
                 }
             }
 
@@ -262,6 +266,7 @@ namespace Mappit.Generator
         private static void ValidateRemainingPropertyMappings(
             SourceProductionContext context,
             MapperClassInfo mapperClass,
+            ValidatedMapperClassInfo validatedMapperClass,
             MappingTypeInfo mappingInfo,
             ValidatedMappingTypeInfo validatedMapping,
             Dictionary<string, IPropertySymbol> sourceProperties,
@@ -299,9 +304,12 @@ namespace Mappit.Generator
                         }
                         else
                         {
-                            var memberInfo = ValidatedMappingMemberInfo.Valid(sourceMember, targetMember);
-                            ConfigureCollectionMappingInfo(mapperClass, sourceMember, targetMember, memberInfo);
-                            validatedMapping.MemberMappings[targetMember.Name] = memberInfo;
+                            // The mapping is valid, so we can add it to the validated mapping
+                            validatedMapping.MemberMappings[targetMember.Name] = ValidatedMappingMemberInfo.Valid(sourceMember, targetMember);
+
+                            // If the mapped property is a collection of some sort, we also need to generate some additional
+                            // type mappings that implement the collection mapping logic.
+                            ConfigureImplicitCollectionMappings(validatedMapperClass, mappingInfo.MethodDeclaration, sourceMember.Type, targetMember.Type);
                         }
                     }
                 }
@@ -309,44 +317,63 @@ namespace Mappit.Generator
         }
 
         /// <summary>
-        /// Configures collection mapping information if the properties represent collections or dictionaries
+        /// Configures implicit mappings required for collections/dictionaries.
         /// </summary>
-        private static void ConfigureCollectionMappingInfo(
-            MapperClassInfo mapperClass,
-            IPropertySymbol sourceProperty, 
-            IPropertySymbol targetProperty, 
-            ValidatedMappingMemberInfo memberInfo)
+        private static void ConfigureImplicitCollectionMappings(
+            ValidatedMapperClassInfo mapperClass, 
+            SyntaxNode originatingSyntaxNode,
+            ITypeSymbol sourceType, 
+            ITypeSymbol targetType)
         {
             //if (memberInfo.SourceProperty.Name == "AdditionalIEnumerableInterface")
             //{
-           //    System.Diagnostics.Debugger.Launch();
+            //    System.Diagnostics.Debugger.Launch();
             //}
 
-            // Check if both properties are collections
-            if (TypeHelpers.IsCollectionType(sourceProperty.Type, out var sourceElementType) &&
-                TypeHelpers.IsCollectionType(targetProperty.Type, out var targetElementType))
-            {
-                if (sourceElementType != null && targetElementType != null)
-                {
-                    memberInfo.PropertyMappingKind = PropertyKind.Collection;
-                    memberInfo.ElementTypeMap = (sourceElementType, targetElementType);
-                    
-                    // Infer the concrete collection type based on the target property interface
-                    memberInfo.ConcreteTargetType = TypeHelpers.InferConcreteCollectionType(targetProperty.Type, targetElementType);
-                }
-            }
             // Check if both properties are dictionaries
-            else if (TypeHelpers.IsDictionaryType(sourceProperty.Type, out var sourceKeyType, out var sourceValueType) &&
-                     TypeHelpers.IsDictionaryType(targetProperty.Type, out var targetKeyType, out var targetValueType))
+            if (TypeHelpers.IsDictionaryType(sourceType, out var sourceKeyType, out var sourceValueType) &&
+                 TypeHelpers.IsDictionaryType(targetType, out var targetKeyType, out var targetValueType))
             {
                 if (sourceKeyType != null && targetKeyType != null && sourceValueType != null && targetValueType != null)
                 {
-                    memberInfo.PropertyMappingKind = PropertyKind.Dictionary;
-                    memberInfo.KeyTypeMap = (sourceKeyType, targetKeyType);
-                    memberInfo.ElementTypeMap = (sourceValueType, targetValueType);
-                    
-                    // Infer the concrete dictionary type based on the target property interface
-                    memberInfo.ConcreteTargetType = TypeHelpers.InferConcreteDictionaryType(targetProperty.Type, targetKeyType, targetValueType);
+                    // Check we don't already have a mapping for the dictionary type - if not create one.
+                    if (!mapperClass.HasHapping(sourceType, targetType))
+                    {
+                        // We've not got a mapping for this exact source to target type yet
+                        mapperClass.ImplicitCollectionMappings.Add(
+                            new(
+                                sourceType, 
+                                targetType, 
+                                originatingSyntaxNode, 
+                                CollectionKind.Dictionary,
+                                (sourceValueType, targetValueType),
+                                (sourceKeyType, targetKeyType)));
+                    }
+
+                    ConfigureImplicitCollectionMappings(mapperClass, originatingSyntaxNode, sourceKeyType, targetKeyType);
+                    ConfigureImplicitCollectionMappings(mapperClass, originatingSyntaxNode, sourceValueType, targetValueType);
+                }
+            }
+            // Check if both properties are collections
+            else if (TypeHelpers.IsCollectionType(sourceType, out var sourceElementType) &&
+                TypeHelpers.IsCollectionType(targetType, out var targetElementType))
+            {
+                if (sourceElementType != null && targetElementType != null)
+                {
+                    // Check we don't already have a mapping for the collection type - if not create one.
+                    if (!mapperClass.HasHapping(sourceType, targetType))
+                    {
+                        // We've not got a mapping for this exact source to target type yet
+                        mapperClass.ImplicitCollectionMappings.Add(
+                            new(
+                                sourceType, 
+                                targetType, 
+                                originatingSyntaxNode, 
+                                CollectionKind.Collection,
+                                (sourceElementType, targetElementType)));
+                    }
+
+                    ConfigureImplicitCollectionMappings(mapperClass, originatingSyntaxNode, sourceElementType, targetElementType);
                 }
             }
         }
@@ -380,7 +407,7 @@ namespace Mappit.Generator
             }
         }
 
-        private static bool AreCompatibleTypes(MapperClassInfo mapperClass, ITypeSymbol sourceType, ITypeSymbol targetType)
+        private static bool AreCompatibleTypes(MapperClassInfoBase mapperClass, ITypeSymbol sourceType, ITypeSymbol targetType)
         {
             // Simple case: if the types are the same, they're compatible
             if (sourceType.Equals(targetType, SymbolEqualityComparer.Default))
@@ -388,14 +415,24 @@ namespace Mappit.Generator
                 return true;
             }
 
-            // Check if the types are compatible because they've been mapped by the user.
+            // Check if the types are compatible because they've already been mapped.
             // For example, sourceType may be TypeA and targetType may be TypeB, which are not the same type, but they
             // may be compatible because the user has mapped them.
-            if (mapperClass.Mappings.Any(m =>
-                m.SourceType.Equals(sourceType, SymbolEqualityComparer.Default) &&
-                m.TargetType.Equals(targetType, SymbolEqualityComparer.Default)))
+            if (mapperClass.HasHapping(sourceType, targetType))
             {
                 return true;
+            }
+
+            // Dictionary types - these also have collection/enumerable interfaces, so we need to check them first
+            if (TypeHelpers.IsDictionaryType(sourceType, out var sourceKeyType, out var sourceValueType) &&
+                TypeHelpers.IsDictionaryType(targetType, out var targetKeyType, out var targetValueType))
+            {
+                if (sourceKeyType != null && targetKeyType != null && sourceValueType != null && targetValueType != null)
+                {
+                    // Dictionaries are compatible if their key and value types are compatible
+                    return AreCompatibleTypes(mapperClass, sourceKeyType, targetKeyType) &&
+                           AreCompatibleTypes(mapperClass, sourceValueType, targetValueType);
+                }
             }
 
             // Check for collection types
@@ -406,18 +443,6 @@ namespace Mappit.Generator
                 {
                     // Collections are compatible if their element types are compatible
                     return AreCompatibleTypes(mapperClass, sourceElementType, targetElementType);
-                }
-            }
-
-            // Check for dictionary types
-            if (TypeHelpers.IsDictionaryType(sourceType, out var sourceKeyType, out var sourceValueType) &&
-                TypeHelpers.IsDictionaryType(targetType, out var targetKeyType, out var targetValueType))
-            {
-                if (sourceKeyType != null && targetKeyType != null && sourceValueType != null && targetValueType != null)
-                {
-                    // Dictionaries are compatible if their key and value types are compatible
-                    return AreCompatibleTypes(mapperClass, sourceKeyType, targetKeyType) &&
-                           AreCompatibleTypes(mapperClass, sourceValueType, targetValueType);
                 }
             }
 

@@ -80,6 +80,35 @@ public partial class Mapper
 }
 ```
 
+## Implicit collection property mapping
+
+If a property is a collection, array or dictionary, Mappit will implicitly map the collection elements or dictionary values to the target type. For example:
+
+```csharp
+public record Team(List<Person> People);
+public record Person(string Name, int Age);
+
+public record TeamRepresentation(List<PersonRepresentation> People);
+public record PersonRepresentation(string Name, int Age);
+
+
+// In order to map a team to team representation, you only need to map
+// the Team and Person mappings - Mappit will handle implicitly mapping the collection
+[Mappit]
+public partial class Mapper
+{
+    partial TeamRepresentation Map(Team source);
+    partial PersonRepresentation Map(Person source);
+}
+
+var mapper = new Mapper();
+var team = new Team(new List<Person> { new Person("Alice", 30), new Person("Bob", 25) });
+
+var teamRepresentation = mapper.Map<TeamRepresentation>(team);
+
+Console.WriteLine(teamRepresentation.People.Count); // Outputs: 2
+```
+
 ## Enum Mapping
 
 Enums with the same name and compatible values are mapped automatically. For enums with different names or values, you need to use custom enum mapping.
@@ -132,11 +161,9 @@ public partial class CustomMappingTestMapper
 ## Known limitations
 
 * Classes containing properties with properties differing only by case are not supported.
-* No support for ~~collections or~~ dictionaries (IEnumerable, IList, etc.) (yet!)
 * Recursive object graphs won't work and your code will likely hang forever. I'll get to this too!
 
 ## Todo
 
 * Opt in to reverse mappings
-* Support for ~~collections and~~ dictionaries
 * Recursion handling

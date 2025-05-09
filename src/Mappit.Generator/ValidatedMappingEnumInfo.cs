@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 namespace Mappit.Generator
 {
-    internal sealed class ValidatedMappingEnumInfo : ValidatedMappingInfo
+    internal sealed record ValidatedMappingEnumInfo : ValidatedMappingInfo
     {
         public ValidatedMappingEnumInfo(MappingTypeInfo mappingTypeInfo)
             : base(mappingTypeInfo)

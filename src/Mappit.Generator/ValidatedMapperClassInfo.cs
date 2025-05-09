@@ -6,24 +6,22 @@ using Microsoft.CodeAnalysis;
 
 namespace Mappit.Generator
 {
-    internal sealed class ValidatedMapperClassInfo
+    internal sealed record ValidatedMapperClassInfo : MapperClassInfoBase
     {
         public ValidatedMapperClassInfo(MapperClassInfo classInfo)
+            : base(classInfo.Symbol)
         {
-            ClassName = classInfo.ClassName;
-            Namespace = classInfo.Namespace;
-            Symbol = classInfo.Symbol;
         }
 
-        public string ClassName { get; }
-        public string Namespace { get; }
-        public INamedTypeSymbol Symbol { get; }
         public List<ValidatedMappingTypeInfo> TypeMappings { get; } = new();
         public List<ValidatedMappingEnumInfo> EnumMappings { get; } = new();
+        public List<ValidatedCollectionMappingTypeInfo> ImplicitCollectionMappings { get; } = new();
 
         internal bool TryGetMappedType(ITypeSymbol sourceType, ITypeSymbol targetType, out ValidatedMappingInfo? typeMapping)
         {
-            foreach (var mapping in TypeMappings.Concat<ValidatedMappingInfo>(EnumMappings))
+            foreach (var mapping in TypeMappings
+                .Concat<ValidatedMappingInfo>(EnumMappings)
+                .Concat(ImplicitCollectionMappings))
             {
                 if (mapping.SourceType.Equals(sourceType, SymbolEqualityComparer.Default) &&
                     mapping.TargetType.Equals(targetType, SymbolEqualityComparer.Default))
@@ -35,6 +33,11 @@ namespace Mappit.Generator
 
             typeMapping = default;
             return false;
+        }
+
+        public override bool HasHapping(ITypeSymbol sourceType, ITypeSymbol targetType)
+        {
+            return TryGetMappedType(sourceType, targetType, out _);
         }
     }
 }

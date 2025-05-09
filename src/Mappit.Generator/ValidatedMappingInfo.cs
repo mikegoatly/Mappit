@@ -2,8 +2,20 @@ using Microsoft.CodeAnalysis;
 
 namespace Mappit.Generator
 {
-    internal abstract class ValidatedMappingInfo
+    internal abstract record ValidatedMappingInfo
     {
+        protected ValidatedMappingInfo(
+            string methodName, 
+            ITypeSymbol sourceType, 
+            ITypeSymbol targetType,
+            SyntaxNode associatedSyntaxNode) 
+        {
+            MethodName = methodName;
+            SourceType = sourceType;
+            TargetType = targetType;
+            MethodDeclaration = associatedSyntaxNode;
+        }
+
         protected ValidatedMappingInfo(MappingTypeInfo mappingTypeInfo)
         {
             MethodName = mappingTypeInfo.MethodName;
@@ -12,14 +24,15 @@ namespace Mappit.Generator
             MethodDeclaration = mappingTypeInfo.MethodDeclaration;
             RequiresGeneration = mappingTypeInfo.RequiresGeneration;
             IsReverseMapping = mappingTypeInfo.IsReverseMapping;
+            RequiresPartialMethod = !mappingTypeInfo.IsReverseMapping;
         }
 
-        public string MethodName { get; }
-        public ITypeSymbol SourceType { get; }
-        public ITypeSymbol TargetType { get; }
-        public SyntaxNode MethodDeclaration { get; }
-        public bool RequiresGeneration { get; }
-        public bool IsReverseMapping { get; }
-        public bool RequiresPartialMethod => !this.IsReverseMapping;
+        public string MethodName { get; init; }
+        public ITypeSymbol SourceType { get; init; }
+        public ITypeSymbol TargetType { get; init; }
+        public SyntaxNode MethodDeclaration { get; init; }
+        public bool RequiresGeneration { get; init; }
+        public bool IsReverseMapping { get; init; }
+        public bool RequiresPartialMethod { get; init; }
     }
 }

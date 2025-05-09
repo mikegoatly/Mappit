@@ -2,14 +2,14 @@ using Microsoft.CodeAnalysis;
 
 namespace Mappit.Generator
 {
-    internal enum TargetMappingKind
+    internal enum TargetMapping
     {
         None,
         Constructor,
         Initialization
     }
 
-    internal class ValidatedMappingMemberInfo
+    internal sealed record ValidatedMappingMemberInfo
     {
         private ValidatedMappingMemberInfo(bool isValid, IPropertySymbol sourceProperty, IPropertySymbol targetProperty)
         {
@@ -25,23 +25,7 @@ namespace Mappit.Generator
         public bool IsValid { get; }
         public IPropertySymbol SourceProperty { get; }
         public IPropertySymbol TargetProperty { get; }
-        public TargetMappingKind TargetMapping { get; internal set; }
-        
-        /// <summary>
-        /// The kind of mapping to perform for this property, specifically whether 
-        /// it is a standard property mapping, a collection mapping, or a dictionary mapping.
-        /// </summary>
-        public PropertyKind PropertyMappingKind { get; internal set; }
-
-        /// <summary>
-        /// For collection or dictionary mappings, the type of elements in the source and target collection
-        /// </summary>
-        public (ITypeSymbol sourceElementType, ITypeSymbol targetElementType)? ElementTypeMap { get; internal set; }
-        
-        /// <summary>
-        /// For dictionary mappings, the type of keys in the source and target dictionary
-        /// </summary>
-        public (ITypeSymbol sourceKeyType, ITypeSymbol targetKeyType)? KeyTypeMap { get; internal set; }
+        public TargetMapping TargetMapping { get; internal set; }
 
         /// <summary>
         /// The concrete type that should be instantiated for a collection or dictionary.

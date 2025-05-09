@@ -36,46 +36,49 @@ namespace Mappit.Generator
                 return;
             }
 
-            //try
-            //{
-                var validatedMap = ValidateMappings(context, mapperClass);
+            var validatedMap = ValidateMappings(context, mapperClass);
 
-                var source = new StringBuilder();
+            var source = new StringBuilder();
 
-                // Generate namespace start
-                source.AppendLine($"namespace {validatedMap.Namespace}");
-                source.AppendLine("{");
+            // Generate namespace start
+            source.AppendLine($"namespace {validatedMap.Namespace}");
+            source.AppendLine("{");
 
-                // Generate interface first
-                GenerateMapperInterface(source, validatedMap);
+            // Generate interface first
+            GenerateMapperInterface(source, validatedMap);
 
-                // Generate partial class implementation
-                source.AppendLine($"    public partial class {validatedMap.ClassName} : I{validatedMap.ClassName}");
-                source.AppendLine("    {");
+            // Generate partial class implementation
+            source.AppendLine($"    public partial class {validatedMap.ClassName} : I{validatedMap.ClassName}");
+            source.AppendLine("    {");
 
-                // Implementation for each mapping method
-                foreach (var mapping in validatedMap.EnumMappings)
+            // Implementation for each mapping method
+            foreach (var mapping in validatedMap.EnumMappings)
+            {
+                GenerateEnumMappingMethod(source, mapping);
+            }
+
+            foreach (var mapping in validatedMap.TypeMappings)
+            {
+                GenerateTypeMappingMethod(source, validatedMap, mapping);
+            }
+
+            foreach (var mapping in validatedMap.ImplicitCollectionMappings)
+            {
+                if (mapping.CollectionKind == CollectionKind.Collection)
                 {
-                    GenerateEnumMappingMethod(source, mapping);
+                    EmitCollectionMappingMethod(source, validatedMap, mapping);
                 }
-
-                foreach (var mapping in validatedMap.TypeMappings)
+                else
                 {
-                    GenerateTypeMappingMethod(source, validatedMap, mapping);
+                    EmitDictionaryMappingMethod(source, validatedMap, mapping);
                 }
+            }
 
-                source.AppendLine("    }");
-                source.AppendLine("}");
+            source.AppendLine("    }");
+            source.AppendLine("}");
 
-                // Add the source code to the compilation
-                context.AddSource($"{validatedMap.ClassName}.g.cs", SourceText.From(source.ToString(), Encoding.UTF8));
-//            }
-//            catch (Exception ex)
-//            {
-//#if DEBUG
-//                System.Diagnostics.Debugger.Launch();
-//#endif
-//            }
+            // Add the source code to the compilation
+            context.AddSource($"{validatedMap.ClassName}.g.cs", SourceText.From(source.ToString(), Encoding.UTF8));
         }
 
         private static void GenerateMapperInterface(StringBuilder source, ValidatedMapperClassInfo validatedMap)
@@ -117,107 +120,95 @@ namespace Mappit.Generator
                 // We've already emitted an error message, so we can just emit a comment here.
                 // Doing this means we limit the number of additional compiler errors reported in the generated code.
                 source.AppendLine("// TODO: Unable to resolve mapping for {member.SourceProperty.Name} to {member.TargetProperty.Name}");
-                source.Append($"            default");
-                return;
-            }
-
-            // Handle based on the property mapping kind
-            switch (member.PropertyMappingKind)
-            {
-                case PropertyKind.Collection:
-                    EmitCollectionMapping(source, classInfo, member);
-                    break;
-
-                case PropertyKind.Dictionary:
-                    EmitDictionaryMapping(source, classInfo, member);
-                    break;
-
-                case PropertyKind.Standard:
-                default:
-                    EmitStandardMapping(source, classInfo, member);
-                    break;
-            }
-        }
-
-        private static void EmitStandardMapping(StringBuilder source, ValidatedMapperClassInfo classInfo, ValidatedMappingMemberInfo member)
-        {
-            // Check if there is a direct mapping from source to target property type
-            if (classInfo.TryGetMappedType(member.SourceProperty.Type, member.TargetProperty.Type, out var mapping))
-            {
-                source.Append($"{mapping!.MethodName}(source.{member.SourceProperty.Name})");
+                source.Append($"                    default");
             }
             else
             {
-                source.Append($"source.{member.SourceProperty.Name}");
+                // Check if there is a direct mapping from source to target property type
+                if (classInfo.TryGetMappedType(member.SourceProperty.Type, member.TargetProperty.Type, out var mapping))
+                {
+                    source.Append($"{mapping!.MethodName}(source.{member.SourceProperty.Name})");
+                }
+                else
+                {
+                    source.Append($"source.{member.SourceProperty.Name}");
+                }
             }
         }
 
-        private static void EmitCollectionMapping(StringBuilder source, ValidatedMapperClassInfo classInfo, ValidatedMappingMemberInfo member)
+        private static void EmitCollectionMappingMethod(StringBuilder source, ValidatedMapperClassInfo classInfo, ValidatedCollectionMappingTypeInfo mapping)
         {
-            // For collection types, we need to create a new collection and map each element
-            string sourcePropertyName = member.SourceProperty.Name;
-            string targetTypeName = member.TargetProperty.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+            var (sourceElementType, targetElementType) = mapping.ElementTypeMap;
 
-            // Check if there's a mapping for the element type
-            var (sourceElementType, targetElementType) = member.ElementTypeMap
-                ?? throw new InvalidOperationException("ElementTypeMap has not been set for collection mapping");
-
-            // Null check
-            source.Append($"source.{sourcePropertyName} is null ? null : ");
+            EmitMappingMethodDeclaration(source, mapping);
+            source.AppendLine("            if (source is null)");
+            source.AppendLine("            {");
+            source.AppendLine("                return default;");
+            source.AppendLine("            }");
+            source.AppendLine();
+            source.Append("            ");
 
             bool needsElementMapping = classInfo.TryGetMappedType(sourceElementType, targetElementType, out var elementMapping);
             if (needsElementMapping)
             {
                 // We'll use LINQ to enumerate the source collection and map each element
                 // Handle arrays specially
-                if (member.TargetProperty.Type.TypeKind == TypeKind.Array)
+                if (mapping.TargetType.TypeKind == TypeKind.Array)
                 {
-                    source.Append($"source.{sourcePropertyName}.Select({elementMapping!.MethodName}).ToArray()");
+                    source.AppendLine($"return source.Select({elementMapping!.MethodName}).ToArray();");
                 }
                 else
                 {
                     // For other collections, create a new instance of the appropriate type
                     // Use the concrete type that was determined during validation
-                    source.Append($"new {member.ConcreteTargetType}(source.{sourcePropertyName}.Select({elementMapping!.MethodName}))");
+                    var concreteReturnType = TypeHelpers.InferConcreteCollectionType(mapping.TargetType, targetElementType);
+                    source.AppendLine($"return new {concreteReturnType}(source.Select({elementMapping!.MethodName}));");
                 }
             }
             else
             {
                 // We don't need to use LINQ for the mapping; we can just construct the new collection type from the
                 // source collection directly
-                if (member.TargetProperty.Type.TypeKind == TypeKind.Array)
+                // TODO - this could be optimised further if we allow the user to opt in to re-using the source collection
+                if (mapping.TargetType.TypeKind == TypeKind.Array)
                 {
-                    source.Append($"source.{sourcePropertyName}.ToArray()");
+                    source.AppendLine($"return source.ToArray();");
                 }
                 else
                 {
-                    source.Append($"new {member.ConcreteTargetType}(source.{sourcePropertyName})");
+                    var concreteReturnType = TypeHelpers.InferConcreteCollectionType(mapping.TargetType, targetElementType);
+                    source.AppendLine($"return new {concreteReturnType}(source);");
                 }
             }
+
+            source.AppendLine("        }");
         }
 
-        private static void EmitDictionaryMapping(StringBuilder source, ValidatedMapperClassInfo classInfo, ValidatedMappingMemberInfo member)
+        private static void EmitDictionaryMappingMethod(StringBuilder source, ValidatedMapperClassInfo classInfo, ValidatedCollectionMappingTypeInfo mapping)
         {
-            // For dictionary types, we need to create a new dictionary and map each key/value pair
-            string sourcePropertyName = member.SourceProperty.Name;
-
             // Check if there are mappings for key and value types
-            var (sourceKeyType, targetKeyType) = member.KeyTypeMap
+            var (sourceKeyType, targetKeyType) = mapping.KeyTypeMap
                 ?? throw new InvalidOperationException("KeyTypeMap not set for dictionary mapping");
             bool needsKeyMapping = classInfo.TryGetMappedType(sourceKeyType, targetKeyType, out var keyMapping);
 
-            var (sourceElementType, targetElementType) = member.ElementTypeMap
-                ?? throw new InvalidOperationException("ElementTypeMap not set for dictionary mapping");
+            var (sourceElementType, targetElementType) = mapping.ElementTypeMap;
             bool needsValueMapping = classInfo.TryGetMappedType(sourceElementType, targetElementType, out var valueMapping);
 
-            source.Append($"source.{sourcePropertyName} is null ? null : ");
+            EmitMappingMethodDeclaration(source, mapping);
+            source.AppendLine("            if (source is null)");
+            source.AppendLine("            {");
+            source.AppendLine("                return default;");
+            source.AppendLine("            }");
+            source.AppendLine();
+            source.Append("            ");
 
+            var concreteReturnType = TypeHelpers.InferConcreteDictionaryType(mapping.TargetType, targetKeyType, targetElementType);
             if (needsKeyMapping || needsValueMapping)
             {
                 // Create new dictionary of the concrete type that was determined during validation
-                source.Append($"new {member.ConcreteTargetType}(");
-                source.Append($"source.{sourcePropertyName}.Select(kvp => ");
-                source.Append("new KeyValuePair<");
+                source.AppendLine($"return new {concreteReturnType}(");
+                source.Append($"                source.Select(kvp => ");
+                source.Append("new global::System.Collections.Generic.KeyValuePair<");
                 source.Append(targetKeyType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
                 source.Append(", ");
                 source.Append(targetElementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
@@ -230,14 +221,17 @@ namespace Mappit.Generator
                 // Value mapping
                 source.Append(needsValueMapping ? $"{valueMapping!.MethodName}(kvp.Value)" : "kvp.Value");
 
-                source.Append(")))");
+                source.Append(")));");
             }
             else
             {
                 // We'll just create a new dictionary of the appropriate type
                 // Use the concrete type that was determined during validation
-                source.Append($"new {member.ConcreteTargetType}(source.{sourcePropertyName})");
+                // TODO - this could be optimised further if we allow the user to opt in to re-using the source collection
+                source.Append($"return new {concreteReturnType}(source);");
             }
+
+            source.AppendLine("        }");
         }
 
         private static void GenerateTypeMappingMethod(StringBuilder source, ValidatedMapperClassInfo classInfo, ValidatedMappingTypeInfo mapping)
@@ -247,13 +241,7 @@ namespace Mappit.Generator
                 return;
             }
 
-            var sourceTypeName = mapping.SourceType.Name;
-            var targetTypeName = mapping.TargetType.Name;
-
-            source.AppendLine();
-            source.AppendLine($"        // Implementation of mapping from {sourceTypeName} to {targetTypeName}");
-            source.AppendLine($"        public {(mapping.RequiresPartialMethod ? "partial " : "")}{targetTypeName} {mapping.MethodName}({sourceTypeName} source)");
-            source.AppendLine("        {");
+            EmitMappingMethodDeclaration(source, mapping);
             source.AppendLine("            if (source is null)");
             source.AppendLine("            {");
             source.AppendLine("                return default;");
@@ -261,10 +249,10 @@ namespace Mappit.Generator
             source.AppendLine();
 
             // Start object initialization
-            source.Append($"            return new {targetTypeName}");
+            source.Append($"            return new {mapping.TargetType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}");
 
             var ctor = mapping.Constructor
-                ?? throw new InvalidOperationException($"Constructor not set for mapping from {sourceTypeName} to {targetTypeName}");
+                ?? throw new InvalidOperationException($"Constructor not set!");
 
             if (ctor.Parameters.Length > 0)
             {
@@ -292,14 +280,14 @@ namespace Mappit.Generator
                 source.Append("()");
             }
 
-            if (mapping.MemberMappings.Values.Any(m => m.TargetMapping == TargetMappingKind.Initialization))
+            if (mapping.MemberMappings.Values.Any(m => m.TargetMapping == TargetMapping.Initialization))
             {
                 // Start object initializer
                 source.AppendLine();
                 source.AppendLine("            {");
 
                 // Handle custom property mappings first (skip those already set by constructor)
-                foreach (var propertyMapping in mapping.MemberMappings.Values.Where(x => x.TargetMapping == TargetMappingKind.Initialization))
+                foreach (var propertyMapping in mapping.MemberMappings.Values.Where(x => x.TargetMapping == TargetMapping.Initialization))
                 {
                     source.Append($"                {propertyMapping.TargetProperty.Name} = ");
                     EmitSourcePropertyReference(source, classInfo, propertyMapping);
@@ -327,17 +315,14 @@ namespace Mappit.Generator
                 return;
             }
 
-            var sourceTypeName = mapping.SourceType.Name;
-            var targetTypeName = mapping.TargetType.Name;
+            EmitMappingMethodDeclaration(source, mapping);
 
-            source.AppendLine();
-            source.AppendLine($"        // Implementation of mapping from {sourceTypeName} to {targetTypeName}");
-            source.AppendLine($"        public {(mapping.RequiresPartialMethod ? "partial " : "")} {targetTypeName} {mapping.MethodName}({sourceTypeName} source)");
-            source.AppendLine("        {");
             source.AppendLine($"            return source switch");
             source.AppendLine("            {");
 
             // Generate enum case mappings
+            var sourceTypeName = mapping.SourceType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+            var targetTypeName = mapping.TargetType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
             foreach (var enumCase in mapping.MemberMappings)
             {
                 source.AppendLine($"                {sourceTypeName}.{enumCase.SourceField.Name} => {targetTypeName}.{enumCase.TargetField.Name},");
@@ -347,6 +332,17 @@ namespace Mappit.Generator
             source.AppendLine($"                _ => throw new global::System.ArgumentOutOfRangeException(nameof(source), $\"Invalid enum value {{source}}\")");
             source.AppendLine("            };");
             source.AppendLine("        }");
+        }
+
+        private static void EmitMappingMethodDeclaration(StringBuilder source, ValidatedMappingInfo mapping)
+        {
+            var fullyQualifiedTargetName = mapping.TargetType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+            var fullyQualifiedSourceName = mapping.SourceType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+            source.AppendLine();
+            source.AppendLine($"        // Implementation of mapping from {mapping.SourceType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)}");
+            source.AppendLine($"        // to {mapping.TargetType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)}");
+            source.AppendLine($"        public {(mapping.RequiresPartialMethod ? "partial " : "")}{fullyQualifiedTargetName} {mapping.MethodName}({fullyQualifiedSourceName} source)");
+            source.AppendLine("        {");
         }
     }
 }
