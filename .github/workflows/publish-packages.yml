@@ -17,6 +17,6 @@ jobs:
     - name: Test
       run: dotnet test --verbosity normal
     - name: Package library
-      run: dotnet pack src/Mappit/Mappit.Generator.csproj --output nuget-packages --configuration Release
+      run: dotnet pack src/Mappit.Generator/Mappit.Generator.csproj --output nuget-packages --configuration Release
     - name: Push library package
       run: dotnet nuget push nuget-packages/Mappit.*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
