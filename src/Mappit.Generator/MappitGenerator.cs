@@ -45,11 +45,17 @@ namespace Mappit.Generator
             source.AppendLine($"namespace {validatedMap.Namespace}");
             source.AppendLine("{");
 
+            var classModifiers = string.Join(
+                " ", 
+                mapperClass.ClassDeclarationSyntax.Modifiers
+                    .Where(m => !m.IsKind(SyntaxKind.PartialKeyword) && !m.IsKind(SyntaxKind.SealedKeyword))
+                    .Select(m => m.Text));
+
             // Generate interface first
-            GenerateMapperInterface(source, validatedMap);
+            GenerateMapperInterface(source, classModifiers, validatedMap);
 
             // Generate partial class implementation
-            source.AppendLine($"    public partial class {validatedMap.ClassName} : I{validatedMap.ClassName}");
+            source.AppendLine($"    {classModifiers} partial class {validatedMap.ClassName} : I{validatedMap.ClassName}");
             source.AppendLine("    {");
 
             // Implementation for each mapping method
@@ -82,12 +88,12 @@ namespace Mappit.Generator
             context.AddSource($"{validatedMap.ClassName}.g.cs", SourceText.From(source.ToString(), Encoding.UTF8));
         }
 
-        private static void GenerateMapperInterface(StringBuilder source, ValidatedMapperClassInfo validatedMap)
+        private static void GenerateMapperInterface(StringBuilder source, string classModifiers, ValidatedMapperClassInfo validatedMap)
         {
             source.AppendLine($"    /// <summary>");
             source.AppendLine($"    /// Interface for {validatedMap.ClassName} class");
             source.AppendLine($"    /// </summary>");
-            source.AppendLine($"    public interface I{validatedMap.ClassName}");
+            source.AppendLine($"    {classModifiers} interface I{validatedMap.ClassName}");
             source.AppendLine("    {");
 
             // Generate interface methods for each mapping type
