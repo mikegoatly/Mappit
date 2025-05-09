@@ -1,0 +1,22 @@
+name: Publish Packages
+
+on:
+  workflow_dispatch 
+
+jobs:
+  publish:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Setup .NET Core
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: 9.0.*
+    - name: Test
+      run: dotnet test --verbosity normal
+    - name: Package library
+      run: dotnet pack src/Mappit/Mappit.Generator.csproj --output nuget-packages --configuration Release
+    - name: Push library package
+      run: dotnet nuget push nuget-packages/Mappit.*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
