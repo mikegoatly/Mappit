@@ -70,7 +70,7 @@ namespace Mappit.Tests.MappingGenerationVerification
         }
     }
 
-    public class Person
+    internal sealed class Person
     {
         public int Id { get; set; }
         public required string FirstName { get; set; }
@@ -80,7 +80,7 @@ namespace Mappit.Tests.MappingGenerationVerification
         public required string Email { get; set; }
     }
 
-    public class PersonDto
+    internal sealed class PersonDto
     {
         public int Id { get; set; }
         public required string FirstName { get; set; }
@@ -88,32 +88,12 @@ namespace Mappit.Tests.MappingGenerationVerification
         public DateTime BirthDate { get; set; }
         public int Age { get; set; }
         public required string Email { get; set; }
-    }
-
-    public class Employee
-    {
-        public int Id { get; set; }
-        public required string FirstName { get; set; }
-        public required string LastName { get; set; }
-        public required string Department { get; set; }
-        public decimal Salary { get; set; }
-    }
-
-    public class EmployeeDto
-    {
-        public int Id { get; set; }
-        public required string FirstName { get; set; }
-        public required string LastName { get; set; }
-        public required string Department { get; set; }
-        public decimal Salary { get; set; }
     }
 
     [Mappit]
-    public partial class TestMapper
+    internal sealed partial class TestMapper
     {
         [ReverseMap]
         public partial PersonDto Map(Person source);
-
-        public partial EmployeeDto Map(Employee source);
     }
 }

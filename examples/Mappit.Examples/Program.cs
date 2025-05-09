@@ -7,7 +7,7 @@ namespace Mappit.Examples
     /// Example mapper that demonstrates how to use Mappit
     /// </summary>
     [Mappit]
-    public partial class DemoMapper
+    internal sealed partial class DemoMapper
     {
         /// <summary>
         /// Maps a Foo object to FooRepresentation
@@ -17,7 +17,7 @@ namespace Mappit.Examples
         public partial IList<FooRepresentation> Map(IEnumerable<Foo> source);
     }
 
-    public static class Program
+    internal static class Program
     {
         public static void Main()
         {
@@ -40,9 +40,9 @@ namespace Mappit.Examples
         }
     }
 
-    public record Foo(int Id, string Name, DateTime CreatedDate, bool IsActive);
+    internal sealed record Foo(int Id, string Name, DateTime CreatedDate, bool IsActive);
 
-    public class FooRepresentation(int id)
+    internal sealed class FooRepresentation(int id)
     {
         public int Id { get; } = id;
         public required string Name { get; set; }

@@ -12,14 +12,7 @@ namespace Mappit.Generator
         private static ValidatedMapperClassInfo ValidateMappings(SourceProductionContext context, MapperClassInfo mapperClass)
         {
             // Validate the mapper class for the basics
-            if (!mapperClass.ClassDeclarationSyntax.Modifiers.Any(m => m.IsKind(SyntaxKind.PartialKeyword)))
-            {
-                ReportDiagnostic(
-                    context,
-                    MappitErrorCode.MapperClassNotPartial,
-                    $"Mapper class '{mapperClass.ClassDeclarationSyntax.Identifier.Text}' must be partial.",
-                    mapperClass.ClassDeclarationSyntax);
-            }
+            ValidateClassSyntax(context, mapperClass);
 
             var validatedMapperClass = new ValidatedMapperClassInfo(mapperClass);
 
@@ -41,7 +34,7 @@ namespace Mappit.Generator
                     ValidateEnumMapping(context, mapping, validatedMapperClass);
                 }
                 else if (TypeHelpers.IsDictionaryType(mapping.SourceType, out var sourceKeyType, out var sourceElementType))
-                { 
+                {
                     ValidateDictionaryTypeMapping(context, mapperClass, mapping, validatedMapperClass, sourceKeyType!, sourceElementType!);
                 }
                 else if (TypeHelpers.IsCollectionType(mapping.SourceType, out sourceElementType))
@@ -55,6 +48,19 @@ namespace Mappit.Generator
             }
 
             return validatedMapperClass;
+        }
+
+        private static void ValidateClassSyntax(SourceProductionContext context, MapperClassInfo mapperClass)
+        {
+            var modifiers = mapperClass.ClassDeclarationSyntax.Modifiers;
+            if (!modifiers.Any(m => m.IsKind(SyntaxKind.PartialKeyword)))
+            {
+                ReportDiagnostic(
+                    context,
+                    MappitErrorCode.MapperClassNotPartial,
+                    $"Mapper class '{mapperClass.ClassDeclarationSyntax.Identifier.Text}' must be partial.",
+                    mapperClass.ClassDeclarationSyntax);
+            }
         }
 
         private static void ValidateCollectionTypeMapping(
