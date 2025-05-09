@@ -165,5 +165,4 @@ public partial class CustomMappingTestMapper
 
 ## Todo
 
-* Opt in to reverse mappings
 * Recursion handling
