@@ -27,7 +27,6 @@
   <ItemGroup>
 	  <ProjectReference Include="..\..\src\Mappit.Core\Mappit.Core.csproj" />
 	  <ProjectReference Include="..\..\src\Mappit.Generator\Mappit.Generator.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer" />
-	  <ProjectReference Include="..\..\src\Mappit\Mappit.csproj" />
   </ItemGroup>
 
 </Project>

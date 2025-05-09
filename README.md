@@ -19,8 +19,8 @@ So the benefits of Mappit are:
 public partial class Mapper
 {
     // Every partial mapping method is automatically implemented by the source generator
-    partial FooRepresentation Map(Foo source);
-    partial BarRepresentation Map(Bar source);
+    public partial FooRepresentation Map(Foo source);
+    public partial BarRepresentation Map(Bar source);
 }
 ```
 
@@ -52,7 +52,7 @@ If you need to map properties with different names, you can use the `MapMember` 
 public partial class Mapper
 {
     [MapMember(nameof(Foo.SourceProp), nameof(FooRepresentation.TargetProp))]
-    partial FooRepresentation Map(Foo source);
+    public partial FooRepresentation Map(Foo source);
 }
 ```
 
@@ -72,11 +72,11 @@ public partial class Mapper
 {
     // This mapping will ignore properties that exist in the source but not in the target
     // because of the class-level setting
-    partial FooRepresentation Map(Foo source);
+    public partial FooRepresentation Map(Foo source);
     
     // Override at the field level to require all properties to be mapped
     [IgnoreMissingPropertiesOnTarget(false)]
-    partial BarRepresentation Map(Bar source);
+    public partial BarRepresentation Map(Bar source);
 }
 ```
 
@@ -97,8 +97,8 @@ public record PersonRepresentation(string Name, int Age);
 [Mappit]
 public partial class Mapper
 {
-    partial TeamRepresentation Map(Team source);
-    partial PersonRepresentation Map(Person source);
+    public partial TeamRepresentation Map(Team source);
+    public partial PersonRepresentation Map(Person source);
 }
 
 var mapper = new Mapper();
@@ -136,7 +136,7 @@ public partial class Mapper
     [MapMember(nameof(SourceStatus.Active), nameof(TargetStatus.Enabled))]
     [MapMember(nameof(SourceStatus.Inactive), nameof(TargetStatus.Disabled))]
     [MapMember(nameof(SourceStatus.Pending), nameof(TargetStatus.AwaitingConfirmation))]
-    partial TargetStatus Map(SourceStatus source);
+    public partial TargetStatus Map(SourceStatus source);
 }
 ```
 
@@ -166,3 +166,5 @@ public partial class CustomMappingTestMapper
 ## Todo
 
 * Recursion handling
+* Object flattening - e.g. map a complex object to a simple one
+* Object expansion - e.g. map a simple object to a complex one

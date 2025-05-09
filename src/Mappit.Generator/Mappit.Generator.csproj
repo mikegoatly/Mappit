@@ -1,25 +1,42 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
-    <LangVersion>latest</LangVersion>
-    <IncludeBuildOutput>false</IncludeBuildOutput>
-    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.13.0" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" PrivateAssets="all" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\Mappit.Core\Mappit.Core.csproj" />
-  </ItemGroup>
+	<PropertyGroup>
+		<TargetFramework>netstandard2.0</TargetFramework>
+		<LangVersion>latest</LangVersion>
+		<IncludeBuildOutput>false</IncludeBuildOutput>
+		<EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+		<PackageId>Mappit</PackageId>
+		<RepositoryUrl>https://github.com/mikegoatly/Mappit/</RepositoryUrl>
+		<AssemblyName>$(PackageId)</AssemblyName>
+		<RootNamespace>$(PackageId)</RootNamespace>
+		<Description>A type mapping library that uses source generation to create strongly typed AOT friendly mappings.</Description>
+		<RepositoryType>git</RepositoryType>
+		<PackageProjectUrl>https://github.com/mikegoatly/Mappit</PackageProjectUrl>
+		<PackageTags>Type mapping;Class mapping;Auto mapper;Code generation</PackageTags>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<PackageLicenseFile>LICENSE</PackageLicenseFile>
+		<IsPackable>true</IsPackable>
+		<Version>0.0.1-beta</Version>
+	</PropertyGroup>
 
 	<ItemGroup>
-		<!-- Package the generator in the analyzer directory of the nuget package -->
-		<None Remove="$(OutputPath)/$(AssemblyName).Generator.dll" />
-		<None Include="$(OutputPath)\$(AssemblyName).Generator.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.13.0" PrivateAssets="all" />
+		<PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" PrivateAssets="all" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\Mappit.Core\Mappit.Core.csproj" PrivateAssets="All" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+		<None Include="$(OutputPath)\Mappit.Core.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+		<None Include="$(OutputPath)\Mappit.Core.dll" Pack="true" PackagePath="lib\netstandard2.0" Visible="false" />
+		<None Include="$(OutputPath)\Mappit.Core.xml" Pack="true" PackagePath="lib\netstandard2.0" Visible="false" />
+		<None Include="$(OutputPath)\Mappit.Core.dll" Pack="true" PackagePath="lib\net451" Visible="false" />
+		<None Include="$(OutputPath)\Mappit.Core.xml" Pack="true" PackagePath="lib\net451" Visible="false" />
+		<None Include="..\..\README.md" Link="README.md" Pack="true" PackagePath="" />
+		<None Include="..\..\LICENSE" Link="LICENSE" Pack="true" PackagePath="" />
 	</ItemGroup>
 
 </Project>

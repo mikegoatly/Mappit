@@ -9,8 +9,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{9E67369C-A
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "examples", "examples", "{27EDF922-02D9-40CF-ABE7-6078BE4E1F07}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mappit", "src\Mappit\Mappit.csproj", "{BE73470C-8FA8-B0FB-FFC6-3CF2F1C47340}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mappit.Generator", "src\Mappit.Generator\Mappit.Generator.csproj", "{E01C9F99-FB81-D1DE-F269-50930D65EA11}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mappit.Examples", "examples\Mappit.Examples\Mappit.Examples.csproj", "{C3DDE559-5F6F-12F0-A8F2-534CC4EB352D}"
@@ -33,10 +31,6 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{BE73470C-8FA8-B0FB-FFC6-3CF2F1C47340}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{BE73470C-8FA8-B0FB-FFC6-3CF2F1C47340}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{BE73470C-8FA8-B0FB-FFC6-3CF2F1C47340}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{BE73470C-8FA8-B0FB-FFC6-3CF2F1C47340}.Release|Any CPU.Build.0 = Release|Any CPU
 		{E01C9F99-FB81-D1DE-F269-50930D65EA11}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{E01C9F99-FB81-D1DE-F269-50930D65EA11}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E01C9F99-FB81-D1DE-F269-50930D65EA11}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -58,7 +52,6 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{BE73470C-8FA8-B0FB-FFC6-3CF2F1C47340} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 		{E01C9F99-FB81-D1DE-F269-50930D65EA11} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 		{C3DDE559-5F6F-12F0-A8F2-534CC4EB352D} = {27EDF922-02D9-40CF-ABE7-6078BE4E1F07}
 		{99D850E7-5A60-0320-CC22-5A84322192A0} = {9E67369C-A03F-4256-9016-8F55FD9BC9FD}

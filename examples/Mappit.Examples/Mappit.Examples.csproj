@@ -11,8 +11,6 @@
 
 		<ProjectReference Include="..\..\src\Mappit.Generator\Mappit.Generator.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer">
 		</ProjectReference>
-
-		<ProjectReference Include="..\..\src\Mappit\Mappit.csproj" />
 	</ItemGroup>
 
 </Project>
