@@ -405,8 +405,6 @@ namespace Mappit.Generator
                         // If we're not ignoring missing properties, report a diagnostic
                         if (!mappingInfo.IgnoreMissingPropertiesOnTarget)
                         {
-                            validatedMapping.MemberMappings[targetMember.Name] = ValidatedMappingMemberInfo.Invalid(sourceMember, targetMember);
-
                             ReportDiagnostic(
                                 context,
                                 MappitErrorCode.ImplicitMappedTargetPropertyNotFound,

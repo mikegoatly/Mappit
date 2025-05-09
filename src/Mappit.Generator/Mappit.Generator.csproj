@@ -16,7 +16,7 @@
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<PackageLicenseFile>LICENSE</PackageLicenseFile>
 		<IsPackable>true</IsPackable>
-		<Version>0.0.1</Version>
+		<Version>0.0.2</Version>
 	</PropertyGroup>
 
 	<ItemGroup>
