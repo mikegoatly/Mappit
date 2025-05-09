@@ -2,6 +2,17 @@
 
 namespace Mappit
 {
+    /// <summary>
+    /// The marker attribute to add to a mapping class.
+    /// 
+    /// <code>
+    /// [Mappit]
+    /// public partial class MyMappings
+    /// {
+    ///     public partial MyDto Map(MyModel model);
+    /// }
+    /// </code>
+    /// </summary>
     [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
     public sealed class MappitAttribute : Attribute
     {
