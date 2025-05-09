@@ -23,8 +23,7 @@ namespace Mappit.Generator
             TargetType = mappingTypeInfo.TargetType;
             MethodDeclaration = mappingTypeInfo.MethodDeclaration;
             RequiresGeneration = mappingTypeInfo.RequiresGeneration;
-            IsReverseMapping = mappingTypeInfo.IsReverseMapping;
-            RequiresPartialMethod = !mappingTypeInfo.IsReverseMapping;
+            RequiresPartialMethod = mappingTypeInfo.RequiresPartialMethod;
         }
 
         public string MethodName { get; init; }
@@ -32,7 +31,6 @@ namespace Mappit.Generator
         public ITypeSymbol TargetType { get; init; }
         public SyntaxNode MethodDeclaration { get; init; }
         public bool RequiresGeneration { get; init; }
-        public bool IsReverseMapping { get; init; }
         public bool RequiresPartialMethod { get; init; }
     }
 }

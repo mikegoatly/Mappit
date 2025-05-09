@@ -15,10 +15,11 @@ namespace Mappit.Generator
 
         public MappingTypeInfo(IMethodSymbol methodSymbol, ITypeSymbol sourceType, ITypeSymbol targetType, MethodDeclarationSyntax methodDeclaration)
         {
-            this._methodSymbol = methodSymbol;
+            _methodSymbol = methodSymbol;
             SourceType = sourceType;
             TargetType = targetType;
             MethodDeclaration = methodDeclaration;
+            RequiresPartialMethod = true;
             IsEnum = sourceType.TypeKind == TypeKind.Enum || targetType.TypeKind == TypeKind.Enum;
 
             if (IsEnum)
@@ -49,7 +50,7 @@ namespace Mappit.Generator
         /// The member mappings for the source and target types. Keyed by the source member name.
         /// </summary>
         public Dictionary<string, MappingMemberInfo> MemberMappings { get; init; } = new();
-        public bool IsReverseMapping { get; private init; }
+        public bool RequiresPartialMethod { get; init; }
 
         public MappingTypeInfo BuildReverseMapping()
         {
@@ -57,7 +58,7 @@ namespace Mappit.Generator
             {
                 SourceType = TargetType,
                 TargetType = SourceType,
-                IsReverseMapping = true,
+                RequiresPartialMethod = false,
 
                 // We don't copy any current validation error otherwise it will be duplicated in the reverse mapping
                 // But we do need to check that this isn't a custom mapping that can't be reversed.

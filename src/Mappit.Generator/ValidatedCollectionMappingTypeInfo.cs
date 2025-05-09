@@ -9,24 +9,43 @@ namespace Mappit.Generator
     {
         private static readonly Regex invalidMethodCharacterReplacement = new(@"[^a-zA-Z0-9_匚コᐸᐳ]");
 
-        public ValidatedCollectionMappingTypeInfo(
-            ITypeSymbol sourceType, 
-            ITypeSymbol targetType, 
+        private ValidatedCollectionMappingTypeInfo(
+            ITypeSymbol sourceType,
+            ITypeSymbol targetType,
             SyntaxNode associatedSyntaxNode,
+            string methodName,
             CollectionKind collectionKind,
+            bool isImplicitMapping,
             (ITypeSymbol sourceElementType, ITypeSymbol targetElementType) elementTypeMap,
             (ITypeSymbol sourceKeyType, ITypeSymbol targetKeyType)? keyTypeMap = null)
-            : base(
-                  BuildImplicitMappingMethodName(sourceType, targetType), 
-                  sourceType, 
-                  targetType, 
-                  associatedSyntaxNode)
-        {   
+            : base(methodName, sourceType, targetType, associatedSyntaxNode)
+        {
             CollectionKind = collectionKind;
             ElementTypeMap = elementTypeMap;
             KeyTypeMap = keyTypeMap;
-            RequiresPartialMethod = false;
+            RequiresPartialMethod = !isImplicitMapping;
+            IsImplicitMapping = isImplicitMapping;
         }
+
+        //public ValidatedCollectionMappingTypeInfo(
+        //    ITypeSymbol sourceType, 
+        //    ITypeSymbol targetType, 
+        //    SyntaxNode associatedSyntaxNode,
+        //    CollectionKind collectionKind,
+        //    (ITypeSymbol sourceElementType, ITypeSymbol targetElementType) elementTypeMap,
+        //    (ITypeSymbol sourceKeyType, ITypeSymbol targetKeyType)? keyTypeMap = null)
+        //    : base(
+        //          BuildImplicitMappingMethodName(sourceType, targetType), 
+        //          sourceType, 
+        //          targetType, 
+        //          associatedSyntaxNode)
+        //{   
+        //    CollectionKind = collectionKind;
+        //    ElementTypeMap = elementTypeMap;
+        //    KeyTypeMap = keyTypeMap;
+        //    RequiresPartialMethod = false;
+        //    IsImplicitMapping = true;
+        //}
 
         private static string BuildImplicitMappingMethodName(ITypeSymbol sourceType, ITypeSymbol targetType)
         {
@@ -45,6 +64,48 @@ namespace Mappit.Generator
             // We'll likely have non-valid C# characters in the name, so we need to strip them out
             return invalidMethodCharacterReplacement.Replace(name, "_");
         }
+
+        internal static ValidatedCollectionMappingTypeInfo Explicit(
+            MappingTypeInfo mapping,
+            CollectionKind collectionKind,
+            (ITypeSymbol sourceElementType, ITypeSymbol targetElementType) elementTypeMap,
+            (ITypeSymbol sourceKeyType, ITypeSymbol targetKeyType)? keyTypeMap = null)
+        {
+            return new(
+                mapping.SourceType,
+                mapping.TargetType,
+                mapping.MethodDeclaration,
+                mapping.MethodName,
+                collectionKind,
+                isImplicitMapping: false,
+                elementTypeMap,
+                keyTypeMap);
+        }
+
+        internal static ValidatedCollectionMappingTypeInfo Implicit(
+            ITypeSymbol sourceType,
+            ITypeSymbol targetType,
+            SyntaxNode originatingSyntaxNode,
+            CollectionKind collectionKind,
+            (ITypeSymbol sourceValueType, ITypeSymbol targetValueType) elementTypeMap,
+            (ITypeSymbol sourceKeyType, ITypeSymbol targetKeyType)? keyTypeMap = null)
+        {
+            return new(
+                sourceType,
+                targetType,
+                originatingSyntaxNode,
+                BuildImplicitMappingMethodName(sourceType, targetType),
+                collectionKind,
+                isImplicitMapping: true,
+                elementTypeMap,
+                keyTypeMap);
+        }
+
+        /// <summary>
+        /// Gets whether this collection mapping is implicit (i.e. inferred as part of a mapping to a type's property)
+        /// or an explicit mapping defined by the user's mapping type. Implicit mappings are not added to the mapper interface.
+        /// </summary>
+        public bool IsImplicitMapping { get; }
 
         /// <summary>
         /// The kind of collection mapping to generate.

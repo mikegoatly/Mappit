@@ -19,6 +19,9 @@ namespace Mappit.Generator
         IncompatibleSourceAndConstructorPropertyTypes,
         EnumTypeMismatch,
         CannotReverseMapCustomMapping,
+        InvalidCollectionTypeMapping,
+        InvalidDictionaryTypeMapping,
+        MapperClassNotPartial,
     }
 
     public static class ErrorCodes
@@ -51,6 +54,12 @@ namespace Mappit.Generator
                     ("MAPPIT011", "Source and target enum/type mismatch"),
                 MappitErrorCode.CannotReverseMapCustomMapping => 
                     ("MAPPIT012","Cannot add reverse maps to custom mappings"),
+                MappitErrorCode.InvalidCollectionTypeMapping =>
+                    ("MAPPIT013", "Source is a collection type, but target type is not"),
+                MappitErrorCode.InvalidDictionaryTypeMapping =>
+                    ("MAPPIT014", "Source is a dictionary type, but target type is not"),
+                MappitErrorCode.MapperClassNotPartial =>
+                    ("MAPPIT015", "Mapper class must be partial"),
                 _ => throw new ArgumentOutOfRangeException(nameof(errorCode), errorCode, null),
             };
         }

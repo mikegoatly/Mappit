@@ -116,6 +116,77 @@ namespace Mappit.Tests.MappingGenerationVerification
             Assert.NotNull(result);
             Assert.Equivalent(expected, result);
         }
+
+        [Fact]
+        public void ExplicitlyMappedCollectionTypes_MapDataCorrectly()
+        {
+            var source = new[]
+            {
+                new CollectionEntity(1),
+                new CollectionEntity(2)
+            };
+
+            var expected = new[]
+            {
+                new CollectionEntityMapped(1),
+                new CollectionEntityMapped(2)
+            };
+
+            IExplicitCollectionMappingMapper mapper = new ExplicitCollectionMappingMapper();
+
+            Assert.Equivalent(expected, mapper.Map(source));
+
+            // And the enumerable version
+            Assert.Equivalent(expected, mapper.Map((IEnumerable<CollectionEntity>)source));
+        }
+
+        [Fact]
+        public void ExplicitlyMappedDictionaryTypesWithValueMapping_MapDataCorrectly()
+        {
+            var source = new Dictionary<int, CollectionEntity>
+            {
+                { 1, new CollectionEntity(1) },
+                { 2, new CollectionEntity(2) }
+            };
+
+            var expected = new Dictionary<int, CollectionEntityMapped>
+            {
+                { 1, new CollectionEntityMapped(1) },
+                { 2, new CollectionEntityMapped(2) }
+            };
+
+            IExplicitCollectionMappingMapper mapper = new ExplicitCollectionMappingMapper();
+
+            Assert.Equivalent(expected, mapper.Map(source));
+        }
+
+        [Fact]
+        public void ExplicitlyMappedDictionaryTypesWithKeyMapping_MapDataCorrectly()
+        {
+            var source = new Dictionary<CollectionEntity, int>
+            {
+                { new CollectionEntity(1), 1 },
+                { new CollectionEntity(2), 2 }
+            };
+
+            var expected = new Dictionary<CollectionEntityMapped, int>
+            {
+                { new CollectionEntityMapped(1), 1 },
+                { new CollectionEntityMapped(2), 2 }
+            };
+
+            IExplicitCollectionMappingMapper mapper = new ExplicitCollectionMappingMapper();
+            Assert.Equivalent(expected, mapper.Map(source));
+        }
+    }
+
+    [Mappit]
+    public partial class ExplicitCollectionMappingMapper
+    {
+        public partial CollectionEntityMapped[] Map(CollectionEntity[] source);
+        public partial IReadOnlyList<CollectionEntityMapped> Map(IEnumerable<CollectionEntity> source);
+        public partial IReadOnlyDictionary<int, CollectionEntityMapped> Map(IDictionary<int, CollectionEntity> source);
+        public partial IReadOnlyDictionary<CollectionEntityMapped, int> Map(IDictionary<CollectionEntity, int> source);
     }
 
     [Mappit]

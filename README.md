@@ -1,4 +1,4 @@
-﻿> ⚠️ This project is in **very** early development and it should be considered a proof of concept implementation for now. The API may change, and there may be bugs. Use at your own risk.
+﻿> ⚠️ This project is in early development. The API may change, and there may be bugs. Use at your own risk.
 
 # Mappit
 
@@ -14,23 +14,94 @@ So the benefits of Mappit are:
 
 ## Getting started
 
+```
+nuget install Mappit
+```
+
 ``` csharp
+// This is the mapper class - the implementation is generated at compile time
 [Mappit]
-public partial class Mapper
+public partial class DemoMapper
 {
-    // Every partial mapping method is automatically implemented by the source generator
-    public partial FooRepresentation Map(Foo source);
-    public partial BarRepresentation Map(Bar source);
+    /// <summary>
+    /// Maps a Foo object to FooRepresentation
+    /// </summary>
+    /// <param name="source">The source Foo object</param>
+    /// <returns>A mapped FooRepresentation</returns>
+    public partial IList<FooRepresentation> Map(IEnumerable<Foo> source);
+}
+
+public static class Program
+{
+    public static void Main()
+    {
+        // Create a mapper instance
+        DemoMapper mapper = new DemoMapper();
+
+        // Create source objects
+        Foo[] foos = [
+            new Foo(1, "Test Object", DateTime.Now, true),
+            new Foo(2, "Another Object", DateTime.Now.AddDays(-1), false)
+        ];
+
+        // Map to target type using the strongly-typed method
+        IList<FooRepresentation> fooRepresentations = mapper.Map(foos);
+
+        foreach (var fooRepresentation in fooRepresentations)
+        {
+            Console.WriteLine($"Mapped object: Id={fooRepresentation.Id}, Name={fooRepresentation.Name}");
+        }
+    }
+}
+
+public record Foo(int Id, string Name, DateTime CreatedDate, bool IsActive);
+
+public class FooRepresentation
+{
+    public int Id { get; set; }
+    public required string Name { get; set; }
+    public DateTime CreatedDate { get; set; }
+    public bool IsActive { get; set; }
 }
 ```
 
-You can then use:
+The generated code looks like this:
 
-``` csharp
-var mapped = mapper.Map<FooRepresentation>(myfoo);
+```csharp
+public partial class DemoMapper : IDemoMapper
+{
+
+    // Implementation of mapping from Foo to FooRepresentation
+    public global::Mappit.Examples.FooRepresentation Map(global::Mappit.Examples.Foo source)
+    {
+        if (source is null)
+        {
+            return default;
+        }
+
+        return new global::Mappit.Examples.FooRepresentation()
+        {
+            Id = source.Id,
+            Name = source.Name,
+            CreatedDate = source.CreatedDate,
+            IsActive = source.IsActive,
+        };
+    }
+
+    // Implementation of mapping from IEnumerable<Foo> to IList<FooRepresentation>
+    public partial global::System.Collections.Generic.IList<global::Mappit.Examples.FooRepresentation> Map(global::System.Collections.Generic.IEnumerable<global::Mappit.Examples.Foo> source)
+    {
+        if (source is null)
+        {
+            return default;
+        }
+
+        return new global::System.Collections.Generic.List<global::Mappit.Examples.FooRepresentation>(source.Select(Map));
+    }
+}
 ```
 
-Some people like interfaces for everything, so every generated mapper also implements its own interface - the above example would have an interface `IMapper`.
+Some people like interfaces for everything, so every generated mapper also implements its own interface - the above example has a generated interface `IDempMapper`.
 
 If you like, you can have multiple mapper classes with different names. They will each end up with their own interface, and you can use them independently.
 
@@ -166,5 +237,7 @@ public partial class CustomMappingTestMapper
 ## Todo
 
 * Recursion handling
-* Object flattening - e.g. map a complex object to a simple one
-* Object expansion - e.g. map a simple object to a complex one
+* More complex mappings, like:
+  * Object flattening - e.g. map a complex object to a simple one
+  * Object expansion - e.g. map a simple object to a complex one
+* Opting into direct copy of collections/dictionaries when element types match

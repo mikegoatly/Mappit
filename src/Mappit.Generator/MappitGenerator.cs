@@ -19,8 +19,7 @@ namespace Mappit.Generator
                 .ForAttributeWithMetadataName(
                     Attributes.MappitAttribute,
                     // Search for partial class declarations
-                    predicate: static (s, _) => s is ClassDeclarationSyntax c &&
-                        c.Modifiers.Any(m => m.IsKind(SyntaxKind.PartialKeyword)),
+                    predicate: static (s, _) => s is ClassDeclarationSyntax c,
                     // Transform to get mapper class info
                     transform: static (ctx, _) => GetMapperClassInfo(ctx))
                 .Where(static m => m != null);
@@ -41,6 +40,8 @@ namespace Mappit.Generator
             var source = new StringBuilder();
 
             // Generate namespace start
+            source.AppendLine("using System.Linq;");
+            source.AppendLine();
             source.AppendLine($"namespace {validatedMap.Namespace}");
             source.AppendLine("{");
 
@@ -62,7 +63,7 @@ namespace Mappit.Generator
                 GenerateTypeMappingMethod(source, validatedMap, mapping);
             }
 
-            foreach (var mapping in validatedMap.ImplicitCollectionMappings)
+            foreach (var mapping in validatedMap.CollectionMappings)
             {
                 if (mapping.CollectionKind == CollectionKind.Collection)
                 {
@@ -90,21 +91,14 @@ namespace Mappit.Generator
             source.AppendLine("    {");
 
             // Generate interface methods for each mapping type
-            foreach (var mapping in validatedMap.EnumMappings)
+            foreach (var mapping in validatedMap.EnumMappings
+                .Concat<ValidatedMappingInfo>(validatedMap.TypeMappings)
+                .Concat(validatedMap.CollectionMappings.Where(cm => !cm.IsImplicitMapping)))
             {
                 source.AppendLine($"        /// <summary>");
-                source.AppendLine($"        /// Maps {mapping.SourceType.Name} to {mapping.TargetType.Name}");
+                source.AppendLine($"        /// Maps {mapping.SourceType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)} to {mapping.TargetType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)}");
                 source.AppendLine($"        /// </summary>");
-                source.AppendLine($"        {mapping.TargetType.Name} {mapping.MethodName}({mapping.SourceType.Name} source);");
-                source.AppendLine();
-            }
-
-            foreach (var mapping in validatedMap.TypeMappings)
-            {
-                source.AppendLine($"        /// <summary>");
-                source.AppendLine($"        /// Maps {mapping.SourceType.Name} to {mapping.TargetType.Name}");
-                source.AppendLine($"        /// </summary>");
-                source.AppendLine($"        {mapping.TargetType.Name} {mapping.MethodName}({mapping.SourceType.Name} source);");
+                source.AppendLine($"        {mapping.TargetType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)} {mapping.MethodName}({mapping.SourceType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)} source);");
                 source.AppendLine();
             }
 
@@ -221,14 +215,14 @@ namespace Mappit.Generator
                 // Value mapping
                 source.Append(needsValueMapping ? $"{valueMapping!.MethodName}(kvp.Value)" : "kvp.Value");
 
-                source.Append(")));");
+                source.AppendLine(")));");
             }
             else
             {
                 // We'll just create a new dictionary of the appropriate type
                 // Use the concrete type that was determined during validation
                 // TODO - this could be optimised further if we allow the user to opt in to re-using the source collection
-                source.Append($"return new {concreteReturnType}(source);");
+                source.AppendLine($"return new {concreteReturnType}(source);");
             }
 
             source.AppendLine("        }");
@@ -339,8 +333,8 @@ namespace Mappit.Generator
             var fullyQualifiedTargetName = mapping.TargetType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
             var fullyQualifiedSourceName = mapping.SourceType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
             source.AppendLine();
-            source.AppendLine($"        // Implementation of mapping from {mapping.SourceType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)}");
-            source.AppendLine($"        // to {mapping.TargetType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)}");
+            source.Append($"        // Implementation of mapping from {mapping.SourceType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)}");
+            source.AppendLine($" to {mapping.TargetType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)}");
             source.AppendLine($"        public {(mapping.RequiresPartialMethod ? "partial " : "")}{fullyQualifiedTargetName} {mapping.MethodName}({fullyQualifiedSourceName} source)");
             source.AppendLine("        {");
         }

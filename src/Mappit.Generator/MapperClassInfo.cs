@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Mappit.Generator
 {
@@ -10,13 +11,15 @@ namespace Mappit.Generator
     /// </summary>
     internal sealed record MapperClassInfo : MapperClassInfoBase
     {
-        public MapperClassInfo(INamedTypeSymbol symbol)
+        public MapperClassInfo(ClassDeclarationSyntax classDeclarationSyntax, INamedTypeSymbol symbol)
             : base(symbol)
-        {   
+        {
+            this.ClassDeclarationSyntax = classDeclarationSyntax;
         }
 
         public bool IgnoreMissingPropertiesOnTarget { get; internal set; }
         public List<MappingTypeInfo> Mappings { get; } = new();
+        public ClassDeclarationSyntax ClassDeclarationSyntax { get; }
 
         public override bool HasHapping(ITypeSymbol sourceType, ITypeSymbol targetType)
         {

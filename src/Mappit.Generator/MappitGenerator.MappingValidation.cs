@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 
 namespace Mappit.Generator
 {
@@ -10,6 +11,16 @@ namespace Mappit.Generator
     {
         private static ValidatedMapperClassInfo ValidateMappings(SourceProductionContext context, MapperClassInfo mapperClass)
         {
+            // Validate the mapper class for the basics
+            if (!mapperClass.ClassDeclarationSyntax.Modifiers.Any(m => m.IsKind(SyntaxKind.PartialKeyword)))
+            {
+                ReportDiagnostic(
+                    context,
+                    MappitErrorCode.MapperClassNotPartial,
+                    $"Mapper class '{mapperClass.ClassDeclarationSyntax.Identifier.Text}' must be partial.",
+                    mapperClass.ClassDeclarationSyntax);
+            }
+
             var validatedMapperClass = new ValidatedMapperClassInfo(mapperClass);
 
             foreach (var mapping in mapperClass.Mappings)
@@ -29,6 +40,14 @@ namespace Mappit.Generator
                 {
                     ValidateEnumMapping(context, mapping, validatedMapperClass);
                 }
+                else if (TypeHelpers.IsDictionaryType(mapping.SourceType, out var sourceKeyType, out var sourceElementType))
+                { 
+                    ValidateDictionaryTypeMapping(context, mapperClass, mapping, validatedMapperClass, sourceKeyType!, sourceElementType!);
+                }
+                else if (TypeHelpers.IsCollectionType(mapping.SourceType, out sourceElementType))
+                {
+                    ValidateCollectionTypeMapping(context, mapperClass, mapping, validatedMapperClass, sourceElementType!);
+                }
                 else
                 {
                     ValidateTypeMapping(context, mapperClass, mapping, validatedMapperClass);
@@ -36,6 +55,100 @@ namespace Mappit.Generator
             }
 
             return validatedMapperClass;
+        }
+
+        private static void ValidateCollectionTypeMapping(
+            SourceProductionContext context,
+            MapperClassInfo mapperClass,
+            MappingTypeInfo mapping, 
+            ValidatedMapperClassInfo validatedMapperClass, 
+            ITypeSymbol sourceElementType)
+        {
+            if (!TypeHelpers.IsCollectionType(mapping.TargetType, out var targetElementType))
+            {
+                ReportDiagnostic(
+                    context,
+                    MappitErrorCode.InvalidCollectionTypeMapping,
+                    $"Invalid dictionary type mapping: {FormatTypeForErrorMessage(mapping.SourceType)} to {FormatTypeForErrorMessage(mapping.TargetType)}",
+                    mapping.MethodDeclaration);
+
+                return;
+            }
+
+            // Register the validated collection mapping
+            validatedMapperClass.CollectionMappings.Add(
+                ValidatedCollectionMappingTypeInfo.Explicit(mapping, CollectionKind.Collection, (sourceElementType, targetElementType!)));
+
+            ValidateExplicitlyMappedCollectionGenericType(context, mapperClass, mapping, validatedMapperClass, sourceElementType, targetElementType!);
+        }
+
+        private static void ValidateDictionaryTypeMapping(
+            SourceProductionContext context,
+            MapperClassInfo mapperClass,
+            MappingTypeInfo mapping, 
+            ValidatedMapperClassInfo validatedMapperClass, 
+            ITypeSymbol sourceKeyType, 
+            ITypeSymbol sourceElementType)
+        {
+            if (!TypeHelpers.IsDictionaryType(mapping.TargetType, out var targetKeyType, out var targetElementType))
+            {
+                ReportDiagnostic(
+                    context,
+                    MappitErrorCode.InvalidDictionaryTypeMapping,
+                    $"Invalid dictionary type mapping: {FormatTypeForErrorMessage(mapping.SourceType)} to {FormatTypeForErrorMessage(mapping.TargetType)}",
+                    mapping.MethodDeclaration);
+
+                return;
+            }
+
+            // Register the validated dictionary mapping
+            validatedMapperClass.CollectionMappings.Add(
+                ValidatedCollectionMappingTypeInfo.Explicit(mapping, CollectionKind.Dictionary, (sourceElementType, targetElementType!), (sourceKeyType, targetKeyType!)));
+
+            ValidateExplicitlyMappedCollectionGenericType(context, mapperClass, mapping, validatedMapperClass, sourceElementType, targetElementType!);
+            ValidateExplicitlyMappedCollectionGenericType(context, mapperClass, mapping, validatedMapperClass, sourceKeyType, targetKeyType!);
+        }
+
+        private static bool ValidateExplicitlyMappedCollectionGenericType(
+            SourceProductionContext context,
+            MapperClassInfo mapperClass,
+            MappingTypeInfo mapping,
+            ValidatedMapperClassInfo validatedMapperClass,
+            ITypeSymbol sourceType,
+            ITypeSymbol targetType)
+        {
+            // Do we need to map the element type at all?
+            if (AreCompatibleTypes(mapperClass, sourceType, targetType!))
+            {
+                // Nothing more to do for this collection
+                return false;
+            }
+
+            // Is the element type explicitly registered by the user?
+            // We need to check both the original user mappings and any validated mappings that have been created
+            // because we can't guarantee that the validated mappings contains all the user mappings yet, but it
+            // *may* contain additional mappings that the user hasn't defined.
+            if (mapperClass.HasHapping(sourceType, targetType!)
+                || validatedMapperClass.HasHapping(sourceType, targetType!))
+            {
+                // TODO Emit a warning that it's unnecessary to register both
+            }
+            else
+            {
+                // We need to also register the type mapping between the element types
+                var elementMappingTypeInfo = mapping with
+                {
+                    SourceType = sourceType,
+                    TargetType = targetType!,
+
+                    // This mapping method hasn't been defined by the user, so it won't require a partial method
+                    RequiresPartialMethod = false,
+                };
+
+                ValidateTypeMapping(context, mapperClass, elementMappingTypeInfo, validatedMapperClass);
+            }
+
+            return true;
         }
 
         private static void ValidateEnumMapping(SourceProductionContext context, MappingTypeInfo mapping, ValidatedMapperClassInfo validatedMapperClassInfo)
@@ -77,7 +190,7 @@ namespace Mappit.Generator
             validatedMapperClassInfo.EnumMappings.Add(validatedMapping);
         }
 
-        private static void ValidateTypeMapping(SourceProductionContext context, MapperClassInfo mapperClass, MappingTypeInfo mapping, ValidatedMapperClassInfo validatedMapperClass)
+        private static bool ValidateTypeMapping(SourceProductionContext context, MapperClassInfo mapperClass, MappingTypeInfo mapping, ValidatedMapperClassInfo validatedMapperClass)
         {
             var validatedMapping = new ValidatedMappingTypeInfo(mapping);
 
@@ -94,6 +207,7 @@ namespace Mappit.Generator
                 .ToDictionary(x => x.Name, StringComparer.OrdinalIgnoreCase);
 
             // First validate any custom mappings that have been provided
+            var successfullyValidated = true;
             foreach (var propertyMapping in mapping.MemberMappings.Values)
             {
                 // Report diagnostics if properties don't exist
@@ -104,6 +218,8 @@ namespace Mappit.Generator
                         MappitErrorCode.UserMappedSourcePropertyNotFound,
                         $"Source property '{propertyMapping.SourceName}' not found in type '{FormatTypeForErrorMessage(mapping.SourceType)}'",
                         propertyMapping.SourceArgument);
+
+                    successfullyValidated = false;
                 }
 
                 if (!targetProperties.TryGetValue(propertyMapping.TargetName, out var targetProperty))
@@ -113,6 +229,8 @@ namespace Mappit.Generator
                         MappitErrorCode.UserMappedTargetPropertyNotFound,
                         $"Target property '{propertyMapping.TargetName}' not found in type '{FormatTypeForErrorMessage(mapping.TargetType)}'",
                         propertyMapping.TargetArgument);
+
+                    successfullyValidated = false;
                 }
 
                 if (sourceProperty != null && targetProperty != null)
@@ -123,6 +241,7 @@ namespace Mappit.Generator
                     {
                         validatedMapping.MemberMappings[targetProperty.Name] = ValidatedMappingMemberInfo.Invalid(sourceProperty, targetProperty);
                         ReportIncompatibleSourceAndTargetPropertyTypesDiagnostic(context, sourceProperty, targetProperty, propertyMapping.SyntaxNode);
+                        successfullyValidated = false;
                     }
                     else
                     {
@@ -136,7 +255,10 @@ namespace Mappit.Generator
             if (ValidateConstructionRequirements(context, mapperClass, validatedMapping))
             {
                 validatedMapperClass.TypeMappings.Add(validatedMapping);
+                return successfullyValidated;
             }
+
+            return false;
         }
 
         private static void ReportIncompatibleSourceAndTargetPropertyTypesDiagnostic(
@@ -325,11 +447,6 @@ namespace Mappit.Generator
             ITypeSymbol sourceType, 
             ITypeSymbol targetType)
         {
-            //if (memberInfo.SourceProperty.Name == "AdditionalIEnumerableInterface")
-            //{
-            //    System.Diagnostics.Debugger.Launch();
-            //}
-
             // Check if both properties are dictionaries
             if (TypeHelpers.IsDictionaryType(sourceType, out var sourceKeyType, out var sourceValueType) &&
                  TypeHelpers.IsDictionaryType(targetType, out var targetKeyType, out var targetValueType))
@@ -340,8 +457,8 @@ namespace Mappit.Generator
                     if (!mapperClass.HasHapping(sourceType, targetType))
                     {
                         // We've not got a mapping for this exact source to target type yet
-                        mapperClass.ImplicitCollectionMappings.Add(
-                            new(
+                        mapperClass.CollectionMappings.Add(
+                            ValidatedCollectionMappingTypeInfo.Implicit(
                                 sourceType, 
                                 targetType, 
                                 originatingSyntaxNode, 
@@ -364,8 +481,8 @@ namespace Mappit.Generator
                     if (!mapperClass.HasHapping(sourceType, targetType))
                     {
                         // We've not got a mapping for this exact source to target type yet
-                        mapperClass.ImplicitCollectionMappings.Add(
-                            new(
+                        mapperClass.CollectionMappings.Add(
+                            ValidatedCollectionMappingTypeInfo.Implicit(
                                 sourceType, 
                                 targetType, 
                                 originatingSyntaxNode, 
