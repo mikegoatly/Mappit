@@ -24,6 +24,9 @@ namespace Mappit.Generator
         MapperClassNotPartial,
         EnumMappingWithPropertyMappings,
         TypeMappingWithEnumValueMappings,
+        ConversionMethodNotFound,
+        InvalidValueConversionReturnType,
+        InvalidValueConversionParameterType,
     }
 
     public static class ErrorCodes
@@ -66,6 +69,12 @@ namespace Mappit.Generator
                     ("MAPPIT016", "Enum mapping cannot have property mappings - use MapEnumValue"),
                 MappitErrorCode.TypeMappingWithEnumValueMappings =>
                     ("MAPPIT017", "Type mapping cannot have enum value mappings - use MapProperty"),
+                MappitErrorCode.ConversionMethodNotFound =>
+                    ("MAPPIT018", "Conversion method not found"),
+                MappitErrorCode.InvalidValueConversionReturnType =>
+                    ("MAPPIT019", "Invalid return type for value conversion method"),
+                MappitErrorCode.InvalidValueConversionParameterType =>
+                    ("MAPPIT020", "Invalid parameter type for value conversion method"),
                 _ => throw new ArgumentOutOfRangeException(nameof(errorCode), errorCode, null),
             };
         }

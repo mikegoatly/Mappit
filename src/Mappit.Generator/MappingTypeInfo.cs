@@ -26,12 +26,12 @@ namespace Mappit.Generator
             {
                 if (sourceType.TypeKind != TypeKind.Enum || targetType.TypeKind != TypeKind.Enum)
                 {
-                    ValidationError = MappitErrorCode.EnumTypeMismatch;
+                    ValidationErrors.Add((MappitErrorCode.EnumTypeMismatch, $"{(sourceType.TypeKind == TypeKind.Enum ? "source type" : "target type")} is an enum, but the other is not."));
                 }
             }
         }
 
-        public MappitErrorCode ValidationError { get; set; }
+        public List<(MappitErrorCode, string)> ValidationErrors { get; set; } = [];
         public bool RequiresGeneration => _methodSymbol.IsPartialDefinition;
         public bool IsEnum { get; init; }
         public string MethodName => _methodSymbol.Name;
@@ -60,20 +60,26 @@ namespace Mappit.Generator
 
         public MappingTypeInfo BuildReverseMapping()
         {
+            // We don't copy any current validation error otherwise it will be duplicated in the reverse mapping
+            // But we do need to check that this isn't a custom mapping that can't be reversed.
+            List<(MappitErrorCode, string)> validationErrors = _methodSymbol.IsPartialDefinition
+                ? []
+                : [(MappitErrorCode.CannotReverseMapCustomMapping, $"Cannot reverse map a custom mapping.")];
+
+            if (PropertyMappings.Values.Any(p => p.ValueConversionMethod is not null))
+            {
+                validationErrors.Add((MappitErrorCode.CannotReverseMapCustomMapping, $"Cannot reverse map a mapping with a custom property mapping"));
+            }
+
             return this with
             {
                 SourceType = TargetType,
                 TargetType = SourceType,
                 RequiresPartialMethod = false,
-
-                // We don't copy any current validation error otherwise it will be duplicated in the reverse mapping
-                // But we do need to check that this isn't a custom mapping that can't be reversed.
-                ValidationError = this._methodSymbol.IsPartialDefinition 
-                    ? MappitErrorCode.None 
-                    : MappitErrorCode.CannotReverseMapCustomMapping,
+                ValidationErrors = validationErrors,
 
                 // Reverse the member mappings, remembering to change the key to the target name.
-                PropertyMappings = this.PropertyMappings.Values.ToDictionary(
+                PropertyMappings = PropertyMappings.Values.ToDictionary(
                     v => v.TargetName,
                     v => v with
                     {
@@ -84,7 +90,7 @@ namespace Mappit.Generator
                         TargetArgument = v.SourceArgument,
                     }),
 
-                EnumValueMappings = this.EnumValueMappings.Values.ToDictionary(
+                EnumValueMappings = EnumValueMappings.Values.ToDictionary(
                     v => v.TargetName,
                     v => v with
                     {

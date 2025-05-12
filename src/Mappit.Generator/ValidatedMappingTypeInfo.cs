@@ -23,5 +23,15 @@ namespace Mappit.Generator
         public Dictionary<string, ValidatedMappingMemberInfo> MemberMappings { get; } = new(StringComparer.OrdinalIgnoreCase);
 
         public IMethodSymbol? Constructor { get; internal set; }
+
+        public void AddValidMapping(IPropertySymbol sourceProperty, IPropertySymbol targetProperty, IMethodSymbol? valueConversionMethod = null)
+        {
+            MemberMappings.Add(targetProperty.Name, ValidatedMappingMemberInfo.Valid(sourceProperty, targetProperty, valueConversionMethod));
+        }
+
+        public void AddInvalidMapping(IPropertySymbol sourceProperty, IPropertySymbol targetProperty)
+        {
+            MemberMappings.Add(targetProperty.Name, ValidatedMappingMemberInfo.Invalid(sourceProperty, targetProperty));
+        }
     }
 }

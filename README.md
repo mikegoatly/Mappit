@@ -16,7 +16,7 @@ So the benefits of Mappit are:
 
 ### Properties
 * **Implicit property mappings** (properties with matching names and compatible types)
-* **Custom property mappings** - mapping from one property to another property with a different name
+* **Custom property mappings** - mapping from one property to another property with a different name, including support for custom value transformations.
 
 ### Enums
 * **Implicit enum mappings** where all the enum names match
@@ -127,7 +127,7 @@ If you like, you can have multiple mapper classes with different names. They wil
 
 ### Custom Property Mapping
 
-If you need to map properties with different names, you can use the `MapMember` attribute:
+If you need to map properties with different names, you can use the `MapProperty` attribute:
 
 ```csharp
 [Mappit]
@@ -141,6 +141,37 @@ public partial class Mapper
 This will map the `SourceProp` property of `Foo` to the `TargetProp` property of `FooRepresentation`. 
 
 The property names are validated at compile time, so you'll get a compilation error if they don't exist or have incompatible types.
+
+#### Custom Value Conversion Methods
+
+You can specify a custom conversion method for transforming property values during mapping:
+
+```csharp
+[Mappit]
+public partial class Mapper
+{
+    // If the target name is not specified, it is assumed to be the same as the source name.
+    // (You'll get a validation error if it's not!)
+    [MapProperty(nameof(Foo.Name), ValueConversionMethod = nameof(CleanupName))]
+    public partial FooRepresentation Map(Foo source);
+    
+    // Custom conversion method - must have matching parameter and return types
+    private string CleanupName(string name) => name?.Trim();
+}
+```
+
+The conversion method must:
+
+1. Have a return type matching the target property type
+2. Take a single parameter matching the source property type
+3. Be defined within the mapper class
+
+This feature enables:
+
+* Custom type conversions between incompatible types
+* Data transformations like string cleanup, null handling, etc.
+* Keeping most mappings automatic while customizing specific properties
+* Reusing the same conversion logic across multiple mappings
 
 ### Handling Missing Properties
 
