@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace Mappit.Generator
@@ -115,30 +116,67 @@ namespace Mappit.Generator
         {
             // Start building the mapping info for the source to target type
             var mappingInfo = new MappingTypeInfo(methodSymbol, sourceType, destType, methodDeclaration);
-
-            // Find all MapMember attributes in the syntax tree - these will be the custom mappings
-            var memberMappingAttributeSyntaxes = methodDeclaration.AttributeLists
-                .SelectMany(al => al.Attributes)
-                .Where(a => a.Name.ToString() == "MapMember" && a.ArgumentList?.Arguments.Count == 2)
-                .ToList();
+            var propertyMappingAttributeSyntaxes = GetAttributes(methodDeclaration, "MapProperty");
 
             // Process each attribute syntax
-            foreach (var attrSyntax in memberMappingAttributeSyntaxes)
+            foreach (var attrSyntax in propertyMappingAttributeSyntaxes)
             {
-                // TODO I think if someone has changed the order of the attributes by naming them this will break?
-                var sourcePropertyName = GetArgumentStringValue(attrSyntax.ArgumentList!.Arguments[0], semanticModel);
-                var targetPropertyName = GetArgumentStringValue(attrSyntax.ArgumentList!.Arguments[1], semanticModel);
+                var sourcePropertyName = GetArgumentStringValue(attrSyntax.ArgumentList, 0, nameof(MapPropertyAttribute.SourceName), semanticModel);
+                var targetPropertyName = GetArgumentStringValue(attrSyntax.ArgumentList, 1, nameof(MapPropertyAttribute.TargetName), semanticModel);
 
-                mappingInfo.MemberMappings.Add(
+                if (sourcePropertyName is null || targetPropertyName is null)
+                {
+                    System.Diagnostics.Debugger.Launch();
+                    continue;
+                }
+
+                mappingInfo.PropertyMappings.Add(
                     sourcePropertyName,
                     new MappingMemberInfo(sourcePropertyName, targetPropertyName, attrSyntax));
+            }
+
+            var enumMappingAttributeSyntaxes = GetAttributes(methodDeclaration, "MapEnumValue");
+
+            foreach (var attrSyntax in enumMappingAttributeSyntaxes)
+            {
+                var sourceEnumValue = GetArgumentStringValue(attrSyntax.ArgumentList, 0, nameof(MapEnumValueAttribute.SourceName), semanticModel);
+                var targetEnumValue = GetArgumentStringValue(attrSyntax.ArgumentList, 1, nameof(MapEnumValueAttribute.TargetName), semanticModel);
+
+                if (sourceEnumValue is null || targetEnumValue is null)
+                {
+                    System.Diagnostics.Debugger.Launch();
+                    continue;
+                }
+
+                mappingInfo.EnumValueMappings.Add(
+                    sourceEnumValue,
+                    new MappingMemberInfo(sourceEnumValue, targetEnumValue, attrSyntax));
             }
 
             return mappingInfo;
         }
 
-        private static string GetArgumentStringValue(AttributeArgumentSyntax argument, SemanticModel semanticModel)
+        private static List<AttributeSyntax> GetAttributes(MethodDeclarationSyntax methodDeclaration, string attributeName)
         {
+            return methodDeclaration.AttributeLists
+                .SelectMany(al => al.Attributes)
+                .Where(a => a.Name.ToString() == attributeName)
+                .ToList();
+        }
+
+        private static string? GetArgumentStringValue(
+            AttributeArgumentListSyntax? arguments, 
+            int? position,
+            string argumentName, 
+            SemanticModel semanticModel)
+        {
+            var argument = position is { } pos ? arguments?.Arguments.ElementAtOrDefault(pos) : null;
+            argument ??= arguments?.Arguments.FirstOrDefault(a => a.NameEquals?.Name.Identifier.Text == argumentName);
+            if (argument is null)
+            {
+                return null;
+            }
+
             // If it's a simple literal, just return its string representation
             if (argument.Expression is LiteralExpressionSyntax literal)
             {

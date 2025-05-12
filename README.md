@@ -133,7 +133,7 @@ If you need to map properties with different names, you can use the `MapMember` 
 [Mappit]
 public partial class Mapper
 {
-    [MapMember(nameof(Foo.SourceProp), nameof(FooRepresentation.TargetProp))]
+    [MapProperty(nameof(Foo.SourceProp), nameof(FooRepresentation.TargetProp))]
     public partial FooRepresentation Map(Foo source);
 }
 ```
@@ -215,9 +215,9 @@ public enum TargetStatus {
 [Mappit]
 public partial class Mapper
 {
-    [MapMember(nameof(SourceStatus.Active), nameof(TargetStatus.Enabled))]
-    [MapMember(nameof(SourceStatus.Inactive), nameof(TargetStatus.Disabled))]
-    [MapMember(nameof(SourceStatus.Pending), nameof(TargetStatus.AwaitingConfirmation))]
+    [MapEnumValue(nameof(SourceStatus.Active), nameof(TargetStatus.Enabled))]
+    [MapEnumValue(nameof(SourceStatus.Inactive), nameof(TargetStatus.Disabled))]
+    [MapEnumValue(nameof(SourceStatus.Pending), nameof(TargetStatus.AwaitingConfirmation))]
     public partial TargetStatus Map(SourceStatus source);
 }
 ```

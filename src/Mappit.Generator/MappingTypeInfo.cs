@@ -49,7 +49,13 @@ namespace Mappit.Generator
         /// <summary>
         /// The member mappings for the source and target types. Keyed by the source member name.
         /// </summary>
-        public Dictionary<string, MappingMemberInfo> MemberMappings { get; init; } = new();
+        public Dictionary<string, MappingMemberInfo> PropertyMappings { get; init; } = new();
+
+        /// <summary>
+        /// The member ma0
+        /// </summary>
+        public Dictionary<string, MappingMemberInfo> EnumValueMappings { get; init; } = new();
+
         public bool RequiresPartialMethod { get; init; }
 
         public MappingTypeInfo BuildReverseMapping()
@@ -67,7 +73,18 @@ namespace Mappit.Generator
                     : MappitErrorCode.CannotReverseMapCustomMapping,
 
                 // Reverse the member mappings, remembering to change the key to the target name.
-                MemberMappings = this.MemberMappings.Values.ToDictionary(
+                PropertyMappings = this.PropertyMappings.Values.ToDictionary(
+                    v => v.TargetName,
+                    v => v with
+                    {
+                        SourceName = v.TargetName,
+                        TargetName = v.SourceName,
+                        SyntaxNode = v.SyntaxNode,
+                        SourceArgument = v.TargetArgument,
+                        TargetArgument = v.SourceArgument,
+                    }),
+
+                EnumValueMappings = this.EnumValueMappings.Values.ToDictionary(
                     v => v.TargetName,
                     v => v with
                     {

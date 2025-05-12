@@ -167,8 +167,17 @@ namespace Mappit.Generator
             var targetMembers = mapping.TargetType.GetMembers().OfType<IFieldSymbol>()
                 .Where(f => f.IsStatic && f.IsConst || f.IsReadOnly).ToDictionary(x => x.Name, StringComparer.OrdinalIgnoreCase);
 
+            if (mapping.PropertyMappings.Count > 0)
+            {
+                ReportDiagnostic(
+                    context,
+                    MappitErrorCode.EnumMappingWithPropertyMappings,
+                    $"Enum mapping '{mapping.MethodName}' cannot have property mappings.",
+                    mapping.MethodDeclaration);
+            }
+
             // First validate any custom mappings that have been provided
-            foreach (var enumMapping in mapping.MemberMappings.Values)
+            foreach (var enumMapping in mapping.EnumValueMappings.Values)
             {
                 if (!sourceMembers.TryGetValue(enumMapping.SourceName, out var sourceMember))
                 {
@@ -188,7 +197,10 @@ namespace Mappit.Generator
                         enumMapping.TargetArgument);
                 }
 
-                validatedMapping.MemberMappings.Add(new ValidatedMappingEnumMemberInfo(sourceMember, targetMember));
+                if (sourceMember is not null && targetMember is not null)
+                {
+                    validatedMapping.MemberMappings.Add(new ValidatedMappingEnumMemberInfo(sourceMember, targetMember));
+                }
             }
 
             ValidateRemainingEnumMembers(context, mapping, validatedMapping, sourceMembers, targetMembers);
@@ -199,6 +211,15 @@ namespace Mappit.Generator
         private static bool ValidateTypeMapping(SourceProductionContext context, MapperClassInfo mapperClass, MappingTypeInfo mapping, ValidatedMapperClassInfo validatedMapperClass)
         {
             var validatedMapping = new ValidatedMappingTypeInfo(mapping);
+
+            if (mapping.EnumValueMappings.Count > 0)
+            {
+                ReportDiagnostic(
+                    context,
+                    MappitErrorCode.TypeMappingWithEnumValueMappings,
+                    $"Type mapping '{mapping.MethodName}' cannot have enum value mappings.",
+                    mapping.MethodDeclaration);
+            }
 
             // We only consider source properties that are:
             // * Publicly accessible
@@ -214,7 +235,7 @@ namespace Mappit.Generator
 
             // First validate any custom mappings that have been provided
             var successfullyValidated = true;
-            foreach (var propertyMapping in mapping.MemberMappings.Values)
+            foreach (var propertyMapping in mapping.PropertyMappings.Values)
             {
                 // Report diagnostics if properties don't exist
                 if (!sourceProperties.TryGetValue(propertyMapping.SourceName, out var sourceProperty))
@@ -403,7 +424,7 @@ namespace Mappit.Generator
             foreach (var sourceMember in sourceProperties.Values)
             {
                 // Only check for properties that are not already mapped
-                if (!mappingInfo.MemberMappings.ContainsKey(sourceMember.Name))
+                if (!mappingInfo.PropertyMappings.ContainsKey(sourceMember.Name))
                 {
                     // Do we have a matching target property?
                     if (!targetProperties.TryGetValue(sourceMember.Name, out var targetMember))
@@ -509,7 +530,7 @@ namespace Mappit.Generator
             foreach (var sourceMember in sourceMembers.Values)
             {
                 // Only check for values that are not already mapped
-                if (!mappingInfo.MemberMappings.ContainsKey(sourceMember.Name))
+                if (!mappingInfo.EnumValueMappings.ContainsKey(sourceMember.Name))
                 {
                     // Do we have a matching target property?
                     if (!targetMembers.TryGetValue(sourceMember.Name, out var targetMember))
