@@ -50,5 +50,10 @@ namespace Mappit.Generator
         /// as <see cref="SyntaxNode"/>.
         /// </summary>
         public SyntaxNode TargetArgument { get; init; }
+
+        /// <summary>
+        /// The name of the method to use for converting the source value to the target value.
+        /// </summary>
+        public IMethodSymbol? ValueConversionMethod { get; internal set; }
     }
 }

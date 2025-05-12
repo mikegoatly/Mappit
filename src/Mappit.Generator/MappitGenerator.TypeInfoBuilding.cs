@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
 namespace Mappit.Generator
@@ -50,7 +51,14 @@ namespace Mappit.Generator
                     var sourceType = methodSymbol.Parameters[0].Type;
                     var destType = returnType;
 
-                    var mappingInfo = BuildMapping(semanticModel, methodDeclaration, methodSymbol, sourceType, destType);
+                    var mappingInfo = BuildMapping(
+                        context,
+                        classSymbol,
+                        semanticModel,
+                        methodDeclaration,
+                        methodSymbol,
+                        sourceType,
+                        destType);
 
                     // Apply any configuration attributes applied to the method, combined with the class-level settings
                     ApplyMappingConfigForType(mapperClass, methodSymbol, mappingInfo);
@@ -90,7 +98,10 @@ namespace Mappit.Generator
             return defaultValue;
         }
 
-        private static MapperClassInfo CreateMapperClassInfo(ClassDeclarationSyntax classDeclarationSyntax, GeneratorAttributeSyntaxContext context, INamedTypeSymbol classSymbol)
+        private static MapperClassInfo CreateMapperClassInfo(
+            ClassDeclarationSyntax classDeclarationSyntax,
+            GeneratorAttributeSyntaxContext context,
+            INamedTypeSymbol classSymbol)
         {
             var mapperClass = new MapperClassInfo(classDeclarationSyntax, classSymbol);
 
@@ -112,45 +123,76 @@ namespace Mappit.Generator
             return mapperClass;
         }
 
-        private static MappingTypeInfo BuildMapping(SemanticModel semanticModel, MethodDeclarationSyntax methodDeclaration, IMethodSymbol methodSymbol, ITypeSymbol sourceType, ITypeSymbol destType)
+        private static MappingTypeInfo BuildMapping(
+            GeneratorAttributeSyntaxContext context,
+            INamedTypeSymbol classSymbol,
+            SemanticModel semanticModel,
+            MethodDeclarationSyntax methodDeclaration,
+            IMethodSymbol methodSymbol,
+            ITypeSymbol sourceType,
+            ITypeSymbol destType)
         {
             // Start building the mapping info for the source to target type
             var mappingInfo = new MappingTypeInfo(methodSymbol, sourceType, destType, methodDeclaration);
             var propertyMappingAttributeSyntaxes = GetAttributes(methodDeclaration, "MapProperty");
 
             // Process each attribute syntax
-            foreach (var attrSyntax in propertyMappingAttributeSyntaxes)
+            foreach (var attr in propertyMappingAttributeSyntaxes)
             {
-                var sourcePropertyName = GetArgumentStringValue(attrSyntax.ArgumentList, 0, nameof(MapPropertyAttribute.SourceName), semanticModel);
-                var targetPropertyName = GetArgumentStringValue(attrSyntax.ArgumentList, 1, nameof(MapPropertyAttribute.TargetName), semanticModel);
-
-                if (sourcePropertyName is null || targetPropertyName is null)
+                var sourcePropertyName = attr.GetArgumentString(semanticModel, nameof(MapPropertyAttribute.SourceName), 0);
+                if (sourcePropertyName is null)
                 {
-                    System.Diagnostics.Debugger.Launch();
+                    Debug.WriteLine($"Unable to locate {nameof(MapPropertyAttribute.SourceName)} argument for property mapping");
                     continue;
                 }
 
-                mappingInfo.PropertyMappings.Add(
-                    sourcePropertyName,
-                    new MappingMemberInfo(sourcePropertyName, targetPropertyName, attrSyntax));
+                var targetPropertyName = attr.GetArgumentString(semanticModel, nameof(MapPropertyAttribute.TargetName), 1)
+                    ?? sourcePropertyName;
+
+                //if (attr.GetArgumentString(semanticModel, nameof(MapPropertyAttribute.TargetName)) is null)
+                //{
+                //    System.Diagnostics.Debugger.Launch();
+                //}
+
+                var memberMappingInfo = new MappingMemberInfo(sourcePropertyName, targetPropertyName, attr);
+
+                if (attr.GetArgumentString(semanticModel, nameof(MapPropertyAttribute.ValueConversionMethod)) is { } conversionMethod)
+                {
+                    // Attempt to get the method symbol for the conversion method
+                    var conversionMethodSymbol = classSymbol.GetMembers()
+                        .OfType<IMethodSymbol>()
+                        .FirstOrDefault(m => m.Name == conversionMethod);
+
+                    if (conversionMethodSymbol is null)
+                    {
+                        mappingInfo.ValidationErrors.Add(
+                            (MappitErrorCode.ConversionMethodNotFound, $"Unable to locate method '{conversionMethod}' for converting property mapping '{sourcePropertyName}'."));
+                    }
+                    else
+                    {
+                        memberMappingInfo.ValueConversionMethod = conversionMethodSymbol;
+                    }
+                }
+
+                mappingInfo.PropertyMappings.Add(sourcePropertyName, memberMappingInfo);
             }
 
             var enumMappingAttributeSyntaxes = GetAttributes(methodDeclaration, "MapEnumValue");
 
-            foreach (var attrSyntax in enumMappingAttributeSyntaxes)
+            foreach (var attr in enumMappingAttributeSyntaxes)
             {
-                var sourceEnumValue = GetArgumentStringValue(attrSyntax.ArgumentList, 0, nameof(MapEnumValueAttribute.SourceName), semanticModel);
-                var targetEnumValue = GetArgumentStringValue(attrSyntax.ArgumentList, 1, nameof(MapEnumValueAttribute.TargetName), semanticModel);
-
+                var sourceEnumValue = attr.GetArgumentString(semanticModel, nameof(MapEnumValueAttribute.SourceName), 0);
+                var targetEnumValue = attr.GetArgumentString(semanticModel, nameof(MapEnumValueAttribute.TargetName), 1);
+                
                 if (sourceEnumValue is null || targetEnumValue is null)
                 {
-                    System.Diagnostics.Debugger.Launch();
+                    Debug.WriteLine("Unable to locate SourceName or TargetName argument for enum value mapping");
                     continue;
                 }
 
                 mappingInfo.EnumValueMappings.Add(
                     sourceEnumValue,
-                    new MappingMemberInfo(sourceEnumValue, targetEnumValue, attrSyntax));
+                    new MappingMemberInfo(sourceEnumValue, targetEnumValue, attr));
             }
 
             return mappingInfo;
@@ -162,36 +204,6 @@ namespace Mappit.Generator
                 .SelectMany(al => al.Attributes)
                 .Where(a => a.Name.ToString() == attributeName)
                 .ToList();
-        }
-
-        private static string? GetArgumentStringValue(
-            AttributeArgumentListSyntax? arguments, 
-            int? position,
-            string argumentName, 
-            SemanticModel semanticModel)
-        {
-            var argument = position is { } pos ? arguments?.Arguments.ElementAtOrDefault(pos) : null;
-            argument ??= arguments?.Arguments.FirstOrDefault(a => a.NameEquals?.Name.Identifier.Text == argumentName);
-            if (argument is null)
-            {
-                return null;
-            }
-
-            // If it's a simple literal, just return its string representation
-            if (argument.Expression is LiteralExpressionSyntax literal)
-            {
-                return literal.Token.ValueText;
-            }
-
-            // Otherwise, try to get the constant value from semantic model
-            var constantValue = semanticModel.GetConstantValue(argument.Expression);
-            if (constantValue.HasValue && constantValue.Value is string stringValue)
-            {
-                return stringValue;
-            }
-
-            // If we can't determine the value, return the expression text as a fallback
-            return argument.Expression.ToString();
         }
     }
 }

@@ -11,11 +11,16 @@ namespace Mappit.Generator
 
     internal sealed record ValidatedMappingMemberInfo
     {
-        private ValidatedMappingMemberInfo(bool isValid, IPropertySymbol sourceProperty, IPropertySymbol targetProperty)
+        private ValidatedMappingMemberInfo(
+            bool isValid, 
+            IPropertySymbol sourceProperty, 
+            IPropertySymbol targetProperty, 
+            IMethodSymbol? valueConversionMethod = null)
         {
             IsValid = isValid;
             SourceProperty = sourceProperty;
             TargetProperty = targetProperty;
+            ValueConversionMethod = valueConversionMethod;
         }
 
         /// <summary>
@@ -25,6 +30,7 @@ namespace Mappit.Generator
         public bool IsValid { get; }
         public IPropertySymbol SourceProperty { get; }
         public IPropertySymbol TargetProperty { get; }
+        public IMethodSymbol? ValueConversionMethod { get; }
         public TargetMapping TargetMapping { get; internal set; }
 
         /// <summary>
@@ -38,9 +44,9 @@ namespace Mappit.Generator
             return new ValidatedMappingMemberInfo(false, sourceProperty, targetProperty);
         }
 
-        public static ValidatedMappingMemberInfo Valid(IPropertySymbol sourceProperty, IPropertySymbol targetProperty)
+        public static ValidatedMappingMemberInfo Valid(IPropertySymbol sourceProperty, IPropertySymbol targetProperty, IMethodSymbol? valueConversionMethod = null)
         {
-            return new ValidatedMappingMemberInfo(true, sourceProperty, targetProperty);
+            return new ValidatedMappingMemberInfo(true, sourceProperty, targetProperty, valueConversionMethod);
         }
     }
 }

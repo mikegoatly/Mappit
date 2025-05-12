@@ -121,13 +121,17 @@ namespace Mappit.Generator
                 // When we haven't been able to resolve the mapping, we need to emit a placeholder.
                 // We've already emitted an error message, so we can just emit a comment here.
                 // Doing this means we limit the number of additional compiler errors reported in the generated code.
-                source.AppendLine("// TODO: Unable to resolve mapping for {member.SourceProperty.Name} to {member.TargetProperty.Name}");
+                source.AppendLine($"// TODO: Unable to resolve mapping for {member.SourceProperty.Name} to {member.TargetProperty.Name}");
                 source.Append($"                    default");
             }
             else
             {
+                if (member.ValueConversionMethod is { } conversionMethod)
+                {
+                    source.Append($"{conversionMethod.Name}(source.{member.SourceProperty.Name})");
+                }
                 // Check if there is a direct mapping from source to target property type
-                if (classInfo.TryGetMappedType(member.SourceProperty.Type, member.TargetProperty.Type, out var mapping))
+                else if (classInfo.TryGetMappedType(member.SourceProperty.Type, member.TargetProperty.Type, out var mapping))
                 {
                     source.Append($"{mapping!.MethodName}(source.{member.SourceProperty.Name})");
                 }

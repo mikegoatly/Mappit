@@ -1,4 +1,6 @@
 using System;
+using System.Globalization;
+
 using Xunit;
 
 namespace Mappit.Tests.MappingGenerationVerification
@@ -91,6 +93,32 @@ namespace Mappit.Tests.MappingGenerationVerification
             Assert.Equal(source.Id, target.Id);
             Assert.Equal("drieW", target.WeirdModel.Name);
         }
+
+        [Fact]
+        public void Map_WithStaticCustomValueConversion_ShouldMapCorrectly()
+        {
+            var mapper = new CustomPropertyConversionMapper();
+
+            // Arrange
+            var source = new WeirdModel { Name = "Weird" };
+            // Act
+            var target = mapper.Map(source);
+            // Assert
+            Assert.Equal("drieW", target.Name);
+        }
+
+        [Fact]
+        public void Map_WithInstanceCustomValueConversion_ShouldMapCorrectly()
+        {
+            var mapper = new CustomPropertyConversionMapper();
+
+            // Arrange
+            var source = new WeirdModel { Name = "Weird" };
+            // Act
+            var target = mapper.MapWithUpperCase(source);
+            // Assert
+            Assert.Equal("WEIRD", target.Name);
+        }
     }
 
     // Test enum types with different values but same meaning
@@ -163,5 +191,23 @@ namespace Mappit.Tests.MappingGenerationVerification
 
             return new WeirdModelMapped(new string(source.Name.Reverse().ToArray()));
         }
+    }
+
+    [Mappit]
+    public partial class CustomPropertyConversionMapper
+    {
+        [MapProperty("Name", "Name", ValueConversionMethod = nameof(ReverseText))]
+        public partial WeirdModelMapped Map(WeirdModel source);
+
+        // Verify we don't *have* to pass the target property name if it's the same as the source
+        [MapProperty("Name", ValueConversionMethod = nameof(UpperCase))]
+        public partial WeirdModelMapped MapWithUpperCase(WeirdModel source);
+
+        private static string ReverseText(string value) => 
+            string.IsNullOrEmpty(value) ? value : new string(value.Reverse().ToArray());
+
+#pragma warning disable CA1822 // Mark members as static
+        private string UpperCase(string value) => value.ToUpper(CultureInfo.CurrentCulture);
+#pragma warning restore CA1822 // Mark members as static
     }
 }

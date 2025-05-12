@@ -12,11 +12,11 @@ namespace Mappit
         /// Creates a new instance of <see cref="MapPropertyAttribute"/>
         /// </summary>
         /// <param name="sourceName">Source member name</param>
-        /// <param name="targetName">Target member name</param>
-        public MapPropertyAttribute(string sourceName, string targetName)
+        /// <param name="targetName">Target member name. If left null, Mappit will assume it is the same as source member name</param>
+        public MapPropertyAttribute(string sourceName, string? targetName = null)
         {
             SourceName = sourceName ?? throw new ArgumentNullException(nameof(sourceName));
-            TargetName = targetName ?? throw new ArgumentNullException(nameof(targetName));
+            TargetName = targetName ?? sourceName;
         }
 
         /// <summary>
@@ -28,5 +28,11 @@ namespace Mappit
         /// Target member name
         /// </summary>
         public string TargetName { get; }
+
+        /// <summary>
+        /// The name of the method to use for converting the source value to the target value.
+        /// The method must have a return type that matches the target property type and take a single parameter of the source property type.
+        /// </summary>
+        public string? ValueConversionMethod { get; set; }
     }
 }

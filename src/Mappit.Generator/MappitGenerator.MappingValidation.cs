@@ -18,14 +18,12 @@ namespace Mappit.Generator
 
             foreach (var mapping in mapperClass.Mappings)
             {
-                if (mapping.ValidationError != MappitErrorCode.None)
+                if (mapping.ValidationErrors.Count > 0)
                 {
-                    ReportDiagnostic(
-                        context,
-                        mapping.ValidationError,
-                        $"Mapping error for '{FormatTypeForErrorMessage(mapping.SourceType)}' to '{FormatTypeForErrorMessage(mapping.TargetType)}'",
-                        mapping.MethodDeclaration);
-
+                    foreach (var (code, message) in mapping.ValidationErrors)
+                    {
+                        context.ReportDiagnostic(code, message, mapping.MethodDeclaration);
+                    }
                     continue;
                 }
 
@@ -55,8 +53,7 @@ namespace Mappit.Generator
             var modifiers = mapperClass.ClassDeclarationSyntax.Modifiers;
             if (!modifiers.Any(m => m.IsKind(SyntaxKind.PartialKeyword)))
             {
-                ReportDiagnostic(
-                    context,
+                context.ReportDiagnostic(
                     MappitErrorCode.MapperClassNotPartial,
                     $"Mapper class '{mapperClass.ClassDeclarationSyntax.Identifier.Text}' must be partial.",
                     mapperClass.ClassDeclarationSyntax);
@@ -66,14 +63,13 @@ namespace Mappit.Generator
         private static void ValidateCollectionTypeMapping(
             SourceProductionContext context,
             MapperClassInfo mapperClass,
-            MappingTypeInfo mapping, 
-            ValidatedMapperClassInfo validatedMapperClass, 
+            MappingTypeInfo mapping,
+            ValidatedMapperClassInfo validatedMapperClass,
             ITypeSymbol sourceElementType)
         {
             if (!TypeHelpers.IsCollectionType(mapping.TargetType, out var targetElementType))
             {
-                ReportDiagnostic(
-                    context,
+                context.ReportDiagnostic(
                     MappitErrorCode.InvalidCollectionTypeMapping,
                     $"Invalid dictionary type mapping: {FormatTypeForErrorMessage(mapping.SourceType)} to {FormatTypeForErrorMessage(mapping.TargetType)}",
                     mapping.MethodDeclaration);
@@ -91,15 +87,14 @@ namespace Mappit.Generator
         private static void ValidateDictionaryTypeMapping(
             SourceProductionContext context,
             MapperClassInfo mapperClass,
-            MappingTypeInfo mapping, 
-            ValidatedMapperClassInfo validatedMapperClass, 
-            ITypeSymbol sourceKeyType, 
+            MappingTypeInfo mapping,
+            ValidatedMapperClassInfo validatedMapperClass,
+            ITypeSymbol sourceKeyType,
             ITypeSymbol sourceElementType)
         {
             if (!TypeHelpers.IsDictionaryType(mapping.TargetType, out var targetKeyType, out var targetElementType))
             {
-                ReportDiagnostic(
-                    context,
+                context.ReportDiagnostic(
                     MappitErrorCode.InvalidDictionaryTypeMapping,
                     $"Invalid dictionary type mapping: {FormatTypeForErrorMessage(mapping.SourceType)} to {FormatTypeForErrorMessage(mapping.TargetType)}",
                     mapping.MethodDeclaration);
@@ -169,8 +164,7 @@ namespace Mappit.Generator
 
             if (mapping.PropertyMappings.Count > 0)
             {
-                ReportDiagnostic(
-                    context,
+                context.ReportDiagnostic(
                     MappitErrorCode.EnumMappingWithPropertyMappings,
                     $"Enum mapping '{mapping.MethodName}' cannot have property mappings.",
                     mapping.MethodDeclaration);
@@ -181,8 +175,7 @@ namespace Mappit.Generator
             {
                 if (!sourceMembers.TryGetValue(enumMapping.SourceName, out var sourceMember))
                 {
-                    ReportDiagnostic(
-                        context,
+                    context.ReportDiagnostic(
                         MappitErrorCode.UserMappedSourceEnumValueNotFound,
                         $"Source enum value '{enumMapping.SourceName}' not found in any enum property of type '{FormatTypeForErrorMessage(mapping.SourceType)}'",
                         enumMapping.SourceArgument);
@@ -190,8 +183,7 @@ namespace Mappit.Generator
 
                 if (!targetMembers.TryGetValue(enumMapping.TargetName, out var targetMember))
                 {
-                    ReportDiagnostic(
-                        context,
+                    context.ReportDiagnostic(
                         MappitErrorCode.UserMappedTargetEnumValueNotFound,
                         $"Target enum value '{enumMapping.TargetName}' not found in any enum property of type '{FormatTypeForErrorMessage(mapping.TargetType)}'",
                         enumMapping.TargetArgument);
@@ -214,8 +206,7 @@ namespace Mappit.Generator
 
             if (mapping.EnumValueMappings.Count > 0)
             {
-                ReportDiagnostic(
-                    context,
+                context.ReportDiagnostic(
                     MappitErrorCode.TypeMappingWithEnumValueMappings,
                     $"Type mapping '{mapping.MethodName}' cannot have enum value mappings.",
                     mapping.MethodDeclaration);
@@ -240,8 +231,7 @@ namespace Mappit.Generator
                 // Report diagnostics if properties don't exist
                 if (!sourceProperties.TryGetValue(propertyMapping.SourceName, out var sourceProperty))
                 {
-                    ReportDiagnostic(
-                        context,
+                    context.ReportDiagnostic(
                         MappitErrorCode.UserMappedSourcePropertyNotFound,
                         $"Source property '{propertyMapping.SourceName}' not found in type '{FormatTypeForErrorMessage(mapping.SourceType)}'",
                         propertyMapping.SourceArgument);
@@ -251,8 +241,7 @@ namespace Mappit.Generator
 
                 if (!targetProperties.TryGetValue(propertyMapping.TargetName, out var targetProperty))
                 {
-                    ReportDiagnostic(
-                        context,
+                    context.ReportDiagnostic(
                         MappitErrorCode.UserMappedTargetPropertyNotFound,
                         $"Target property '{propertyMapping.TargetName}' not found in type '{FormatTypeForErrorMessage(mapping.TargetType)}'",
                         propertyMapping.TargetArgument);
@@ -263,16 +252,30 @@ namespace Mappit.Generator
                 if (sourceProperty != null && targetProperty != null)
                 {
                     // Check if property types are compatible
-                    bool isCompatible = AreCompatibleTypes(mapperClass, sourceProperty.Type, targetProperty.Type);
+                    bool isCompatible = propertyMapping.ValueConversionMethod is not null || AreCompatibleTypes(mapperClass, sourceProperty.Type, targetProperty.Type);
                     if (!isCompatible)
                     {
-                        validatedMapping.MemberMappings[targetProperty.Name] = ValidatedMappingMemberInfo.Invalid(sourceProperty, targetProperty);
+                        validatedMapping.AddInvalidMapping(sourceProperty, targetProperty);
                         ReportIncompatibleSourceAndTargetPropertyTypesDiagnostic(context, sourceProperty, targetProperty, propertyMapping.SyntaxNode);
                         successfullyValidated = false;
                     }
                     else
                     {
-                        validatedMapping.MemberMappings[targetProperty.Name] = ValidatedMappingMemberInfo.Valid(sourceProperty, targetProperty);
+                        if (propertyMapping.ValueConversionMethod is { } conversionMethod)
+                        {
+                            if (ValidateValueConversionMethod(context, propertyMapping.SyntaxNode, sourceProperty.Type, targetProperty.Type, conversionMethod))
+                            {
+                                validatedMapping.AddValidMapping(sourceProperty, targetProperty, conversionMethod);
+                            }
+                            else
+                            {
+                                validatedMapping.AddInvalidMapping(sourceProperty, targetProperty);
+                            }
+                        }
+                        else
+                        {
+                            validatedMapping.AddValidMapping(sourceProperty, targetProperty);
+                        }
                     }
                 }
             }
@@ -288,14 +291,49 @@ namespace Mappit.Generator
             return false;
         }
 
+        /// <summary>
+        /// Validates that the value conversion has the return type of the target property
+        /// and has a single parameter with the type of the source property.
+        /// </summary>
+        private static bool ValidateValueConversionMethod(
+            SourceProductionContext context,
+            SyntaxNode mappingSyntaxNode,
+            ITypeSymbol sourceType,
+            ITypeSymbol targetType,
+            IMethodSymbol valueConversionMethod)
+        {
+            // Check the return type of the value conversion method matches the target property type
+            if (!valueConversionMethod.ReturnType.Equals(targetType, SymbolEqualityComparer.Default))
+            {
+                context.ReportDiagnostic(
+                    MappitErrorCode.InvalidValueConversionReturnType,
+                    $"Value conversion method '{valueConversionMethod.Name}' return type '{FormatTypeForErrorMessage(valueConversionMethod.ReturnType)}' does not match target property type '{FormatTypeForErrorMessage(targetType)}'",
+                    mappingSyntaxNode);
+
+                return false;
+            }
+
+            // Check the parameter type of the value conversion method matches the source property type
+            if (valueConversionMethod.Parameters.Length != 1 || !valueConversionMethod.Parameters[0].Type.Equals(sourceType, SymbolEqualityComparer.Default))
+            {
+                context.ReportDiagnostic(
+                    MappitErrorCode.InvalidValueConversionParameterType,
+                    $"Value conversion method '{valueConversionMethod.Name}' parameter type '{FormatTypeForErrorMessage(valueConversionMethod.Parameters[0].Type)}' does not match source property type '{FormatTypeForErrorMessage(sourceType)}'",
+                    mappingSyntaxNode);
+
+                return false;
+            }
+
+            return true;
+        }
+
         private static void ReportIncompatibleSourceAndTargetPropertyTypesDiagnostic(
             SourceProductionContext context,
             IPropertySymbol sourceMember,
             IPropertySymbol targetMember,
             SyntaxNode syntaxNode)
         {
-            ReportDiagnostic(
-                context,
+            context.ReportDiagnostic(
                 MappitErrorCode.IncompatibleSourceAndTargetPropertyTypes,
                 $"Incompatible types for property mapping: {sourceMember.Name} ({FormatTypeForErrorMessage(sourceMember.Type)}) to {targetMember.Name} ({FormatTypeForErrorMessage(targetMember.Type)})",
                 syntaxNode);
@@ -307,8 +345,7 @@ namespace Mappit.Generator
 
             if (bestCtor is null)
             {
-                ReportDiagnostic(
-                    context,
+                context.ReportDiagnostic(
                     MappitErrorCode.NoSuitableConstructorFound,
                     $"No suitable constructor found for type '{FormatTypeForErrorMessage(mapping.TargetType)}'. Parameter names must match the target type's property names.",
                     mapping.MethodDeclaration);
@@ -328,8 +365,7 @@ namespace Mappit.Generator
 
                     if (!AreCompatibleTypes(mapperClass, propertyMapping.SourceProperty.Type, constructorParam.Type))
                     {
-                        ReportDiagnostic(
-                            context,
+                        context.ReportDiagnostic(
                             MappitErrorCode.IncompatibleSourceAndConstructorPropertyTypes,
                             $"Incompatible types for constructor mapping: {propertyMapping.SourceProperty.Name} " +
                                 $"({FormatTypeForErrorMessage(propertyMapping.SourceProperty.Type)}) to parameter " +
@@ -344,8 +380,7 @@ namespace Mappit.Generator
                     // This property is not mapped via the constructor, so we need to check if it's read only
                     if (propertyMapping.TargetProperty.IsReadOnly)
                     {
-                        ReportDiagnostic(
-                            context,
+                        context.ReportDiagnostic(
                             MappitErrorCode.TargetPropertyReadOnly,
                             $"Target property '{propertyMapping.TargetProperty.Name}' is read only and cannot be set.",
                             mapping.MethodDeclaration);
@@ -432,8 +467,7 @@ namespace Mappit.Generator
                         // If we're not ignoring missing properties, report a diagnostic
                         if (!mappingInfo.IgnoreMissingPropertiesOnTarget)
                         {
-                            ReportDiagnostic(
-                                context,
+                            context.ReportDiagnostic(
                                 MappitErrorCode.ImplicitMappedTargetPropertyNotFound,
                                 $"Property '{sourceMember.Name}' not found in target type '{FormatTypeForErrorMessage(mappingInfo.TargetType)}'. " +
                                     $"Use [{nameof(IgnoreMissingPropertiesOnTargetAttribute)}] to ignore this error.",
@@ -446,13 +480,13 @@ namespace Mappit.Generator
                         // Check if property types are compatible
                         if (!AreCompatibleTypes(mapperClass, sourceMember.Type, targetMember.Type))
                         {
-                            validatedMapping.MemberMappings[targetMember.Name] = ValidatedMappingMemberInfo.Invalid(sourceMember, targetMember);
+                            validatedMapping.AddInvalidMapping(sourceMember, targetMember);
                             ReportIncompatibleSourceAndTargetPropertyTypesDiagnostic(context, sourceMember, targetMember, mappingInfo.MethodDeclaration);
                         }
                         else
                         {
                             // The mapping is valid, so we can add it to the validated mapping
-                            validatedMapping.MemberMappings[targetMember.Name] = ValidatedMappingMemberInfo.Valid(sourceMember, targetMember);
+                            validatedMapping.AddValidMapping(sourceMember, targetMember);
 
                             // If the mapped property is a collection of some sort, we also need to generate some additional
                             // type mappings that implement the collection mapping logic.
@@ -467,9 +501,9 @@ namespace Mappit.Generator
         /// Configures implicit mappings required for collections/dictionaries.
         /// </summary>
         private static void ConfigureImplicitCollectionMappings(
-            ValidatedMapperClassInfo mapperClass, 
+            ValidatedMapperClassInfo mapperClass,
             SyntaxNode originatingSyntaxNode,
-            ITypeSymbol sourceType, 
+            ITypeSymbol sourceType,
             ITypeSymbol targetType)
         {
             // Check if both properties are dictionaries
@@ -484,9 +518,9 @@ namespace Mappit.Generator
                         // We've not got a mapping for this exact source to target type yet
                         mapperClass.CollectionMappings.Add(
                             ValidatedCollectionMappingTypeInfo.Implicit(
-                                sourceType, 
-                                targetType, 
-                                originatingSyntaxNode, 
+                                sourceType,
+                                targetType,
+                                originatingSyntaxNode,
                                 CollectionKind.Dictionary,
                                 (sourceValueType, targetValueType),
                                 (sourceKeyType, targetKeyType)));
@@ -508,9 +542,9 @@ namespace Mappit.Generator
                         // We've not got a mapping for this exact source to target type yet
                         mapperClass.CollectionMappings.Add(
                             ValidatedCollectionMappingTypeInfo.Implicit(
-                                sourceType, 
-                                targetType, 
-                                originatingSyntaxNode, 
+                                sourceType,
+                                targetType,
+                                originatingSyntaxNode,
                                 CollectionKind.Collection,
                                 (sourceElementType, targetElementType)));
                     }
@@ -535,8 +569,7 @@ namespace Mappit.Generator
                     // Do we have a matching target property?
                     if (!targetMembers.TryGetValue(sourceMember.Name, out var targetMember))
                     {
-                        ReportDiagnostic(
-                            context,
+                        context.ReportDiagnostic(
                             MappitErrorCode.ImplicitTargetEnumValueNotFound,
                             $"Target enum value '{sourceMember.Name}' not found in type '{FormatTypeForErrorMessage(mappingInfo.TargetType)}'. ",
                             mappingInfo.MethodDeclaration);
@@ -590,26 +623,6 @@ namespace Mappit.Generator
 
             return false;
         }
-
-        private static void ReportDiagnostic(
-            SourceProductionContext context,
-            MappitErrorCode errorCode,
-            string message,
-            SyntaxNode node)
-        {
-            var (id, title) = ErrorCodes.GetError(errorCode);
-            var descriptor = new DiagnosticDescriptor(
-                id: id,
-                title: title,
-                messageFormat: message,
-                category: "Mappit",
-                defaultSeverity: DiagnosticSeverity.Error,
-                isEnabledByDefault: true);
-
-            var location = Location.Create(node.SyntaxTree, node.Span);
-            context.ReportDiagnostic(Diagnostic.Create(descriptor, location));
-        }
-
 
         private static string FormatTypeForErrorMessage(ITypeSymbol type)
         {
