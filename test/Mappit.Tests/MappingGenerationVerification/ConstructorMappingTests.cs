@@ -204,9 +204,9 @@ namespace Mappit.Tests.MappingGenerationVerification
 
         public partial TargetWithRequiredConstructor MapLimitedToRequired(SourceWithLimitedProperties source);
 
-        [MapMember("Identifier", "Id")]
-        [MapMember("Title", "Name")]
-        [MapMember("Text", "Description")]
+        [MapProperty("Identifier", "Id")]
+        [MapProperty("Title", "Name")]
+        [MapProperty("Text", "Description")]
         public partial TargetWithConstructor MapCustomPropertiesToTarget(SourceWithCustomProperties source);
     }
 }

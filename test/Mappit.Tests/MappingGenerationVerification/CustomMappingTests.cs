@@ -141,13 +141,13 @@ namespace Mappit.Tests.MappingGenerationVerification
     public partial class CustomMappingTestMapper
     {
         [ReverseMap]
-        [MapMember(nameof(SourceModel.CreatedOn), nameof(TargetModel.DateCreated))]
+        [MapProperty(nameof(SourceModel.CreatedOn), nameof(TargetModel.DateCreated))]
         public partial TargetModel MapSourceToTarget(SourceModel source);
 
         [ReverseMap]
-        [MapMember(nameof(SourceStatus.Active), nameof(TargetStatus.Enabled))]
-        [MapMember(nameof(SourceStatus.Inactive), nameof(TargetStatus.Disabled))]
-        [MapMember(nameof(SourceStatus.Pending), nameof(TargetStatus.AwaitingConfirmation))]
+        [MapEnumValue(nameof(SourceStatus.Active), nameof(TargetStatus.Enabled))]
+        [MapEnumValue(nameof(SourceStatus.Inactive), nameof(TargetStatus.Disabled))]
+        [MapEnumValue(nameof(SourceStatus.Pending), nameof(TargetStatus.AwaitingConfirmation))]
         public partial TargetStatus MapSourceStatus(SourceStatus source);
 
         public partial WeirdModelContainerMapped Map(WeirdModelContainer source);

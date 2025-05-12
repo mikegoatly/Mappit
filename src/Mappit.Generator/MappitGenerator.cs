@@ -15,6 +15,8 @@ namespace Mappit.Generator
     {
         public void Initialize(IncrementalGeneratorInitializationContext context)
         {
+            //System.Diagnostics.Debugger.Launch();
+
             var classDeclarations = context.SyntaxProvider
                 .ForAttributeWithMetadataName(
                     Attributes.MappitAttribute,

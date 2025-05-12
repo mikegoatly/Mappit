@@ -3,17 +3,17 @@ using System;
 namespace Mappit
 {
     /// <summary>
-    /// Attribute to define custom member mapping between types.
+    /// Attribute to define custom value mapping between enums.
     /// </summary>
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
-    public sealed class MapMemberAttribute : Attribute
+    public sealed class MapEnumValueAttribute : Attribute
     {
         /// <summary>
-        /// Creates a new instance of <see cref="MapMemberAttribute"/>
+        /// Creates a new instance of <see cref="MapPropertyAttribute"/>
         /// </summary>
         /// <param name="sourceName">Source member name</param>
         /// <param name="targetName">Target member name</param>
-        public MapMemberAttribute(string sourceName, string targetName)
+        public MapEnumValueAttribute(string sourceName, string targetName)
         {
             SourceName = sourceName ?? throw new ArgumentNullException(nameof(sourceName));
             TargetName = targetName ?? throw new ArgumentNullException(nameof(targetName));
