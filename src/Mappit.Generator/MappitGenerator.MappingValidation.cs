@@ -216,12 +216,11 @@ namespace Mappit.Generator
             // * Publicly accessible
             // * Not static
             // * Not write-only (i.e. they have a getter)
-            var sourceProperties = mapping.SourceType.GetMembers().OfType<IPropertySymbol>()
-                .Where(f => f.DeclaredAccessibility == Accessibility.Public && !f.IsStatic && !f.IsWriteOnly)
+            var sourceProperties = GetMappableProperties(mapping.SourceType)
+                .Where(f => !f.IsWriteOnly)
                 .ToDictionary(x => x.Name, StringComparer.OrdinalIgnoreCase);
 
-            var targetProperties = mapping.TargetType.GetMembers().OfType<IPropertySymbol>()
-                .Where(f => f.DeclaredAccessibility == Accessibility.Public && !f.IsStatic)
+            var targetProperties = GetMappableProperties(mapping.TargetType)
                 .ToDictionary(x => x.Name, StringComparer.OrdinalIgnoreCase);
 
             // First validate any custom mappings that have been provided
@@ -622,6 +621,26 @@ namespace Mappit.Generator
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Gets all properties from a type, including inherited properties.
+        /// </summary>
+        private static IEnumerable<IPropertySymbol> GetMappableProperties(ITypeSymbol type)
+        {
+            var current = type;
+            while (current != null)
+            {
+                foreach (var member in current.GetMembers().OfType<IPropertySymbol>())
+                {
+                    if (member.DeclaredAccessibility == Accessibility.Public && !member.IsStatic)
+                    {
+                        yield return member;
+                    }
+                }
+                
+                current = current.BaseType;
+            }
         }
 
         private static string FormatTypeForErrorMessage(ITypeSymbol type)
