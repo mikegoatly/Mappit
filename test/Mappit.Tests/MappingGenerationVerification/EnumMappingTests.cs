@@ -76,7 +76,7 @@ namespace Mappit.Tests.MappingGenerationVerification
         public int Id { get; set; }
         public required string Name { get; init; }
         public Color PrimaryColor { get; set; }
-        public Color SecondaryColor { get; set; }
+        public Color? SecondaryColor { get; set; }
     }
 
     public class DtoWithEnum
@@ -84,7 +84,7 @@ namespace Mappit.Tests.MappingGenerationVerification
         public int Id { get; set; }
         public required string Name { get; init; }
         public DisplayColor PrimaryColor { get; set; }
-        public DisplayColor SecondaryColor { get; set; }
+        public DisplayColor? SecondaryColor { get; set; }
     }
 
     [Mappit]
@@ -93,9 +93,8 @@ namespace Mappit.Tests.MappingGenerationVerification
         public partial DtoWithEnum Map(ModelWithEnum source);
         
         public partial ModelWithEnum Map(DtoWithEnum source);
-        
+
+        [ReverseMap]
         public partial Color Map(DisplayColor source);
-        
-        public partial DisplayColor Map(Color source);
     }
 }
