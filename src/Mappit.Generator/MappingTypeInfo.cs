@@ -1,6 +1,6 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
+
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -20,13 +20,13 @@ namespace Mappit.Generator
             TargetType = targetType;
             MethodDeclaration = methodDeclaration;
             RequiresPartialMethod = true;
-            IsEnum = sourceType.TypeKind == TypeKind.Enum || targetType.TypeKind == TypeKind.Enum;
+            IsEnum = sourceType.IsEnum() || targetType.IsEnum();
 
             if (IsEnum)
             {
-                if (sourceType.TypeKind != TypeKind.Enum || targetType.TypeKind != TypeKind.Enum)
+                if (!sourceType.IsEnum() || !targetType.IsEnum())
                 {
-                    ValidationErrors.Add((MappitErrorCode.EnumTypeMismatch, $"{(sourceType.TypeKind == TypeKind.Enum ? "source type" : "target type")} is an enum, but the other is not."));
+                    ValidationErrors.Add((MappitErrorCode.EnumTypeMismatch, $"{(sourceType.IsEnum() ? "source type" : "target type")} is an enum, but the other is not."));
                 }
             }
         }
