@@ -48,7 +48,7 @@ namespace Mappit.Generator
             source.AppendLine("{");
 
             var classModifiers = string.Join(
-                " ", 
+                " ",
                 mapperClass.ClassDeclarationSyntax.Modifiers
                     .Where(m => !m.IsKind(SyntaxKind.PartialKeyword) && !m.IsKind(SyntaxKind.SealedKeyword))
                     .Select(m => m.Text));
@@ -83,6 +83,11 @@ namespace Mappit.Generator
                 }
             }
 
+            foreach (var mapping in validatedMap.NullableMappings)
+            {
+                EmitNullableMappingMethod(source, validatedMap, mapping);
+            }
+
             source.AppendLine("    }");
             source.AppendLine("}");
 
@@ -101,7 +106,9 @@ namespace Mappit.Generator
             // Generate interface methods for each mapping type
             foreach (var mapping in validatedMap.EnumMappings
                 .Concat<ValidatedMappingInfo>(validatedMap.TypeMappings)
-                .Concat(validatedMap.CollectionMappings.Where(cm => !cm.IsImplicitMapping)))
+                .Concat(validatedMap.CollectionMappings)
+                .Concat(validatedMap.NullableMappings)
+                .Where(cm => !cm.IsImplicitMapping))
             {
                 source.AppendLine($"        /// <summary>");
                 source.AppendLine($"        /// Maps {mapping.SourceType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)} to {mapping.TargetType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)}");
@@ -140,6 +147,43 @@ namespace Mappit.Generator
                     source.Append($"source.{member.SourceProperty.Name}");
                 }
             }
+        }
+
+        private static void EmitNullableMappingMethod(StringBuilder source, ValidatedMapperClassInfo classInfo, ValidatedNullableMappingTypeInfo mapping)
+        {
+            EmitMappingMethodDeclaration(source, mapping);
+
+            bool needsElementMapping = classInfo.TryGetMappedType(
+                mapping.SourceNullableUnderlyingType ?? mapping.SourceType, 
+                mapping.TargetNullableUnderlyingType ?? mapping.TargetType, 
+                out var underlyingTypeMapping);
+
+            source.AppendLine("            return source is {} notNullSource");
+            source.Append("                ? ");
+            if (needsElementMapping)
+            {
+                // If we need to map the underlying type, we need to call the mapping method
+                source.AppendLine($"{underlyingTypeMapping!.MethodName}(notNullSource)");
+            }
+            else
+            {
+                // No mapping needed; just return the value
+                source.AppendLine($"notNullSource");
+            }
+
+            source.Append("                : ");
+            if (mapping.TargetNullableUnderlyingType is null)
+            {
+                // If the target type is not nullable, there's a runtime conversion error
+                source.AppendLine($"throw new global::System.ArgumentException(\"Cannot map null to non-nullable type {FormatTypeForErrorMessage(mapping.TargetType)}\", nameof(source));");
+            }
+            else
+            {
+                // If the target type is nullable, we can just return null
+                source.AppendLine($"default;");
+            }
+
+            source.AppendLine("        }");
         }
 
         private static void EmitCollectionMappingMethod(StringBuilder source, ValidatedMapperClassInfo classInfo, ValidatedCollectionMappingTypeInfo mapping)
@@ -321,25 +365,23 @@ namespace Mappit.Generator
                 return;
             }
 
-            GenerateNullableValueTypeMapping(
-                source,
-                mapping,
-                static (sb, mapping, sourceParam, sourceEnumType, targetEnumType) =>
-                {
-                    sb.AppendLine($"            return {sourceParam} switch");
-                    sb.AppendLine("            {");
+            EmitMappingMethodDeclaration(source, mapping);
 
-                    // Add cases for each enum value mapping
-                    foreach (var memberMapping in mapping.MemberMappings)
-                    {
-                        sb.AppendLine($"                {sourceEnumType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}.{memberMapping.SourceField.Name} =>");
-                        sb.AppendLine($"                    {targetEnumType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}.{memberMapping.TargetField.Name},");
-                    }
+            source.AppendLine($"            return source switch");
+            source.AppendLine("            {");
 
-                    // Add a default case to handle unmapped values
-                    sb.AppendLine($"                _ => throw new global::System.ArgumentOutOfRangeException(nameof(source), $\"Invalid enum value {{source}}\")");
-                    sb.AppendLine("            };");
-                });
+            // Generate enum case mappings
+            var sourceTypeName = mapping.SourceType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+            var targetTypeName = mapping.TargetType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+            foreach (var enumCase in mapping.MemberMappings)
+            {
+                source.AppendLine($"                {sourceTypeName}.{enumCase.SourceField.Name} => {targetTypeName}.{enumCase.TargetField.Name},");
+            }
+
+            // Add a default case to handle unmapped values
+            source.AppendLine($"                _ => throw new global::System.ArgumentOutOfRangeException(nameof(source), $\"Invalid enum value {{source}}\")");
+            source.AppendLine("            };");
+            source.AppendLine("        }");
         }
 
         private static void EmitMappingMethodDeclaration(StringBuilder source, ValidatedMappingInfo mapping)
@@ -351,63 +393,6 @@ namespace Mappit.Generator
             source.AppendLine($" to {mapping.TargetType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)}");
             source.AppendLine($"        public {(mapping.RequiresPartialMethod ? "partial " : "")}{fullyQualifiedTargetName} {mapping.MethodName}({fullyQualifiedSourceName} source)");
             source.AppendLine("        {");
-        }
-
-        /// <summary>
-        /// Handles the generation of code for mapping value types, including nullable variants
-        /// </summary>
-        private static void GenerateNullableValueTypeMapping<TMappingInfo>(
-            StringBuilder source,
-            TMappingInfo mapping,
-            Action<StringBuilder, TMappingInfo, string, ITypeSymbol, ITypeSymbol> emitMappingLogic)
-            where TMappingInfo: ValidatedMappingInfo
-        {
-            var sourceType = mapping.SourceType;
-            var targetType = mapping.TargetType;
-            bool sourceIsNullable = sourceType.IsNullableType();
-            bool targetIsNullable = targetType.IsNullableType();
-
-            // Get the actual value types (unwrap nullable if needed)
-            var sourceValueType = sourceIsNullable ? sourceType.GetNullableUnderlyingType() : sourceType;
-            var targetValueType = targetIsNullable ? targetType.GetNullableUnderlyingType() : targetType;
-
-            EmitMappingMethodDeclaration(source, mapping);
-
-            // The implementation depends on whether we're dealing with nullable types
-            if (sourceIsNullable && targetIsNullable)
-            {
-                // Handle nullable to nullable
-                source.AppendLine("            if (source is null)");
-                source.AppendLine("            {");
-                source.AppendLine("                return null;");
-                source.AppendLine("            }");
-                source.AppendLine();
-
-                emitMappingLogic(source, mapping, "source.GetValueOrDefault()", sourceValueType, targetValueType);
-            }
-            else if (sourceIsNullable && !targetIsNullable)
-            {
-                // Handle nullable to non-nullable
-                source.AppendLine("            if (source is null)");
-                source.AppendLine("            {");
-                source.AppendLine("                throw new global::System.ArgumentNullException(nameof(source), \"Cannot map null to non-nullable type\");");
-                source.AppendLine("            }");
-                source.AppendLine();
-
-                emitMappingLogic(source, mapping, "source.GetValueOrDefault()", sourceValueType, targetValueType);
-            }
-            else if (!sourceIsNullable && targetIsNullable)
-            {
-                // Handle non-nullable to nullable
-                emitMappingLogic(source, mapping, "source", sourceValueType, targetValueType);
-            }
-            else
-            {
-                // Handle non-nullable to non-nullable (standard case)
-                emitMappingLogic(source, mapping, "source", sourceValueType, targetValueType);
-            }
-
-            source.AppendLine("        }");
         }
     }
 }
