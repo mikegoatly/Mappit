@@ -7,8 +7,6 @@ namespace Mappit.Generator
 {
     internal sealed record ValidatedCollectionMappingTypeInfo : ValidatedMappingInfo
     {
-        private static readonly Regex invalidMethodCharacterReplacement = new(@"[^a-zA-Z0-9_匚コᐸᐳ]");
-
         private ValidatedCollectionMappingTypeInfo(
             ITypeSymbol sourceType,
             ITypeSymbol targetType,
@@ -18,51 +16,11 @@ namespace Mappit.Generator
             bool isImplicitMapping,
             (ITypeSymbol sourceElementType, ITypeSymbol targetElementType) elementTypeMap,
             (ITypeSymbol sourceKeyType, ITypeSymbol targetKeyType)? keyTypeMap = null)
-            : base(methodName, sourceType, targetType, associatedSyntaxNode)
+            : base(methodName, sourceType, targetType, associatedSyntaxNode, isImplicitMapping)
         {
             CollectionKind = collectionKind;
             ElementTypeMap = elementTypeMap;
             KeyTypeMap = keyTypeMap;
-            RequiresPartialMethod = !isImplicitMapping;
-            IsImplicitMapping = isImplicitMapping;
-        }
-
-        //public ValidatedCollectionMappingTypeInfo(
-        //    ITypeSymbol sourceType, 
-        //    ITypeSymbol targetType, 
-        //    SyntaxNode associatedSyntaxNode,
-        //    CollectionKind collectionKind,
-        //    (ITypeSymbol sourceElementType, ITypeSymbol targetElementType) elementTypeMap,
-        //    (ITypeSymbol sourceKeyType, ITypeSymbol targetKeyType)? keyTypeMap = null)
-        //    : base(
-        //          BuildImplicitMappingMethodName(sourceType, targetType), 
-        //          sourceType, 
-        //          targetType, 
-        //          associatedSyntaxNode)
-        //{   
-        //    CollectionKind = collectionKind;
-        //    ElementTypeMap = elementTypeMap;
-        //    KeyTypeMap = keyTypeMap;
-        //    RequiresPartialMethod = false;
-        //    IsImplicitMapping = true;
-        //}
-
-        private static string BuildImplicitMappingMethodName(ITypeSymbol sourceType, ITypeSymbol targetType)
-        {
-            return $"__Implicit_{FormatForMethodName(sourceType)}_to_{FormatForMethodName(targetType)}";
-        }
-
-        private static string FormatForMethodName(ITypeSymbol typeSymbol)
-        {
-            var name = typeSymbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
-
-            name = name.Replace("[", "匚");
-            name = name.Replace("]", "コ");
-            name = name.Replace("<", "ᐸ");
-            name = name.Replace(">", "ᐳ");
-
-            // We'll likely have non-valid C# characters in the name, so we need to strip them out
-            return invalidMethodCharacterReplacement.Replace(name, "_");
         }
 
         internal static ValidatedCollectionMappingTypeInfo Explicit(
@@ -100,12 +58,6 @@ namespace Mappit.Generator
                 elementTypeMap,
                 keyTypeMap);
         }
-
-        /// <summary>
-        /// Gets whether this collection mapping is implicit (i.e. inferred as part of a mapping to a type's property)
-        /// or an explicit mapping defined by the user's mapping type. Implicit mappings are not added to the mapper interface.
-        /// </summary>
-        public bool IsImplicitMapping { get; }
 
         /// <summary>
         /// The kind of collection mapping to generate.

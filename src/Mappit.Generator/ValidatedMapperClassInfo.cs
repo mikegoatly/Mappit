@@ -16,12 +16,14 @@ namespace Mappit.Generator
         public List<ValidatedMappingTypeInfo> TypeMappings { get; } = new();
         public List<ValidatedMappingEnumInfo> EnumMappings { get; } = new();
         public List<ValidatedCollectionMappingTypeInfo> CollectionMappings { get; } = new();
+        public List<ValidatedNullableMappingTypeInfo> NullableMappings { get; } = new();
 
         internal bool TryGetMappedType(ITypeSymbol sourceType, ITypeSymbol targetType, out ValidatedMappingInfo? typeMapping)
         {
             foreach (var mapping in TypeMappings
                 .Concat<ValidatedMappingInfo>(EnumMappings)
-                .Concat(CollectionMappings))
+                .Concat(CollectionMappings)
+                .Concat(NullableMappings))
             {
                 if (mapping.SourceType.Equals(sourceType, SymbolEqualityComparer.Default) &&
                     mapping.TargetType.Equals(targetType, SymbolEqualityComparer.Default))

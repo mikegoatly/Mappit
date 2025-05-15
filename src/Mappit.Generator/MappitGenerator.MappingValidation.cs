@@ -24,12 +24,13 @@ namespace Mappit.Generator
                     {
                         context.ReportDiagnostic(code, message, mapping.MethodDeclaration);
                     }
+
                     continue;
                 }
 
                 if (mapping.IsEnum)
                 {
-                    ValidateEnumMapping(context, mapping, validatedMapperClass);
+                    ValidateEnumMapping(context, mapperClass, mapping, validatedMapperClass);
                 }
                 else if (TypeHelpers.IsDictionaryType(mapping.SourceType, out var sourceKeyType, out var sourceElementType))
                 {
@@ -152,10 +153,8 @@ namespace Mappit.Generator
             return true;
         }
 
-        private static void ValidateEnumMapping(SourceProductionContext context, MappingTypeInfo mapping, ValidatedMapperClassInfo validatedMapperClassInfo)
+        private static void ValidateEnumMapping(SourceProductionContext context, MapperClassInfo mapperClass, MappingTypeInfo mapping, ValidatedMapperClassInfo validatedMapperClassInfo)
         {
-            var validatedMapping = new ValidatedMappingEnumInfo(mapping);
-            
             // Handle nullable enums
             var sourceType = mapping.SourceType;
             var targetType = mapping.TargetType;
@@ -180,6 +179,8 @@ namespace Mappit.Generator
                     mapping.MethodDeclaration);
             }
 
+            var memberMappings = new List<ValidatedMappingEnumMemberInfo>();
+
             // First validate any custom mappings that have been provided
             foreach (var enumMapping in mapping.EnumValueMappings.Values)
             {
@@ -201,13 +202,30 @@ namespace Mappit.Generator
 
                 if (sourceMember is not null && targetMember is not null)
                 {
-                    validatedMapping.MemberMappings.Add(new ValidatedMappingEnumMemberInfo(sourceMember, targetMember));
+                    memberMappings.Add(new ValidatedMappingEnumMemberInfo(sourceMember, targetMember));
                 }
             }
 
-            ValidateRemainingEnumMembers(context, mapping, validatedMapping, sourceMembers, targetMembers);
+            ValidateRemainingEnumMembers(context, mapping, memberMappings, sourceMembers, targetMembers);
 
-            validatedMapperClassInfo.EnumMappings.Add(validatedMapping);
+            if (sourceIsNullable || targetIsNullable)
+            {
+                // Is there already a mapping for the underlying enum, either user defined, or currently calculated?
+                // TODO consider carrying around the original user mapper class with the validated mapper class so we can unify these checks and reduce passed parameters
+                if (!(mapperClass.HasHapping(sourceEnumType, targetEnumType) || validatedMapperClassInfo.HasHapping(sourceEnumType, targetEnumType)))
+                {
+                    // Create an additional mapping for the nullable versions of the type
+                    validatedMapperClassInfo.EnumMappings.Add(ValidatedMappingEnumInfo.Implicit(mapping, sourceEnumType, targetEnumType, memberMappings));
+                }
+                
+                // Also register the explicit nullable mapping for the type
+                validatedMapperClassInfo.NullableMappings.Add(ValidatedNullableMappingTypeInfo.Explicit(mapping));
+            }
+            else
+            {
+                // Register the validated enum mapping
+                validatedMapperClassInfo.EnumMappings.Add(ValidatedMappingEnumInfo.Explicit(mapping, memberMappings));
+            }
         }
 
         private static bool ValidateTypeMapping(SourceProductionContext context, MapperClassInfo mapperClass, MappingTypeInfo mapping, ValidatedMapperClassInfo validatedMapperClass)
@@ -222,6 +240,7 @@ namespace Mappit.Generator
                     mapping.MethodDeclaration);
             }
 
+            // TODO this will be useful when mapping nullable value types
             var sourceType = mapping.SourceType.IsNullableType() ? mapping.SourceType.GetNullableUnderlyingType() : mapping.SourceType;
             var targetType = mapping.TargetType.IsNullableType() ? mapping.TargetType.GetNullableUnderlyingType() : mapping.TargetType;
 
@@ -527,20 +546,12 @@ namespace Mappit.Generator
                     return;
                 }
 
-                // Try to get the mapping for the underlying type
-                if (!validatedMapperClass.TryGetMappedType(
-                    sourceType.IsNullableType() ? sourceType.GetNullableUnderlyingType() : sourceType,
-                    targetType.IsNullableType() ? targetType.GetNullableUnderlyingType() : targetType,
-                    out var mappingInfo))
-
-                if (sourceType.IsEnum())
-                {
-                    validatedMapperClass.EnumMappings.Add(new ValidatedMappingEnumInfo))
-                }
+                // TODO If the target is not nullable, but the source is, raise a warning
+                // that there may be conversion errors at runtime.
 
                 // Create an additional mapping for the nullable versions of the type
-                validatedMapperClass
-                    .TypeMappings.Add(new ValidatedMappingTypeInfo)
+                validatedMapperClass.NullableMappings.Add(
+                    ValidatedNullableMappingTypeInfo.Implicit(sourceType, targetType, methodDeclaration));
             }
         }
 
@@ -604,7 +615,7 @@ namespace Mappit.Generator
         private static void ValidateRemainingEnumMembers(
             SourceProductionContext context,
             MappingTypeInfo mappingInfo,
-            ValidatedMappingEnumInfo validatedMapping,
+            List<ValidatedMappingEnumMemberInfo> memberMappings,
             Dictionary<string, IFieldSymbol> sourceMembers,
             Dictionary<string, IFieldSymbol> targetMembers)
         {
@@ -623,7 +634,7 @@ namespace Mappit.Generator
                     }
                     else
                     {
-                        validatedMapping.MemberMappings.Add(new ValidatedMappingEnumMemberInfo(sourceMember, targetMember));
+                        memberMappings.Add(new ValidatedMappingEnumMemberInfo(sourceMember, targetMember));
                     }
                 }
             }

@@ -33,7 +33,7 @@ namespace Mappit.Generator
 
         public List<(MappitErrorCode, string)> ValidationErrors { get; set; } = [];
         public bool RequiresGeneration => _methodSymbol.IsPartialDefinition;
-        public bool IsEnum { get; init; }
+        public bool IsEnum { get; }
         public string MethodName => _methodSymbol.Name;
 
         public ITypeSymbol SourceType { get; init; }
