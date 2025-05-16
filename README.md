@@ -17,6 +17,8 @@ So the benefits of Mappit are:
 ### Properties
 * **Implicit property mappings** (properties with matching names and compatible types)
 * **Custom property mappings** - mapping from one property to another property with a different name, including support for custom value transformations.
+* **Implicit nullable mappings** - automatic mapping between a type with it's `Nullable<T>` counterpart. The reverse is supported too, but will be configured to throw 
+  `ArgumentNullException` at runtime is the source value is null.
 
 ### Enums
 * **Implicit enum mappings** where all the enum names match
@@ -30,6 +32,7 @@ So the benefits of Mappit are:
 ### Type construction
 * **Constructor initialization**, including constructors that only cover some of the properties. Any remaining properties will be initialized via their setters.
 * **Missing properties on the target type** - by default you'll get compile-time errors, but can opt in to ignore them.
+* Support for both structs and classes, including records.
 
 ## Getting started
 
