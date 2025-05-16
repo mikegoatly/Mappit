@@ -39,9 +39,10 @@ namespace Mappit.Generator
                     methodSymbol.ReturnType is ITypeSymbol returnType)
                 {
                     // Find the method declaration in the syntax tree
-                    var methodDeclaration = classDeclarationSyntax.DescendantNodes()
+                    var methodDeclaration = methodSymbol.DeclaringSyntaxReferences
+                        .Select(r => r.GetSyntax())
                         .OfType<MethodDeclarationSyntax>()
-                        .FirstOrDefault(m => m.Identifier.Text == methodSymbol.Name);
+                        .FirstOrDefault();
 
                     if (methodDeclaration == null)
                     {

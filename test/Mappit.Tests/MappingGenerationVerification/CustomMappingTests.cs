@@ -75,9 +75,9 @@ namespace Mappit.Tests.MappingGenerationVerification
         public void Map_WithUserDefinedMappingMethod_ShouldMapCorrectly()
         {
             // Arrange
-            var source = new WeirdModel { Name = "Weird" };
+            var source = new CustomMapping { Name = "Weird" };
             // Act
-            var target = _mapper.MapWeirdModel(source);
+            var target = _mapper.MapCustom(source);
             // Assert
             Assert.Equal("drieW", target.Name);
         }
@@ -86,7 +86,7 @@ namespace Mappit.Tests.MappingGenerationVerification
         public void Map_WithNestedModelRequiringUserDefinedMapping_ShouldMapCorrectly()
         {
             // Arrange
-            var source = new WeirdModelContainer(1, new WeirdModel { Name = "Weird" });
+            var source = new CustomMappingContainer(1, new CustomMapping { Name = "Weird" });
             // Act
             var target = _mapper.Map(source);
             // Assert
@@ -100,7 +100,7 @@ namespace Mappit.Tests.MappingGenerationVerification
             var mapper = new CustomPropertyConversionMapper();
 
             // Arrange
-            var source = new WeirdModel { Name = "Weird" };
+            var source = new CustomMapping { Name = "Weird" };
             // Act
             var target = mapper.Map(source);
             // Assert
@@ -113,9 +113,22 @@ namespace Mappit.Tests.MappingGenerationVerification
             var mapper = new CustomPropertyConversionMapper();
 
             // Arrange
-            var source = new WeirdModel { Name = "Weird" };
+            var source = new CustomMapping { Name = "Weird" };
             // Act
             var target = mapper.MapWithUpperCase(source);
+            // Assert
+            Assert.Equal("WEIRD", target.Name);
+        }
+
+        [Fact]
+        public void Map_WithInstanceCustomValueConversionToPropertyInitialization_ShouldMapCorrectly()
+        {
+            var mapper = new CustomPropertyConversionMapper();
+
+            // Arrange
+            var source = new CustomMappingMapped("Weird");
+            // Act
+            var target = mapper.Map(source);
             // Assert
             Assert.Equal("WEIRD", target.Name);
         }
@@ -154,16 +167,16 @@ namespace Mappit.Tests.MappingGenerationVerification
         public DateTime DateCreated { get; set; }
     }
 
-    public class WeirdModel
+    public class CustomMapping
     {
         public required string Name { get; set; }
     }
 
-    public record WeirdModelMapped(string Name);
+    public record CustomMappingMapped(string Name);
 
-    public record WeirdModelContainer(int Id, WeirdModel WeirdModel);
+    public record CustomMappingContainer(int Id, CustomMapping WeirdModel);
 
-    public record WeirdModelContainerMapped(int Id, WeirdModelMapped WeirdModel);
+    public record CustomMappingContainerMapped(int Id, CustomMappingMapped WeirdModel);
 
     [Mappit]
     public partial class CustomMappingTestMapper
@@ -178,18 +191,18 @@ namespace Mappit.Tests.MappingGenerationVerification
         [MapEnumValue(nameof(SourceStatus.Pending), nameof(TargetStatus.AwaitingConfirmation))]
         public partial TargetStatus MapSourceStatus(SourceStatus source);
 
-        public partial WeirdModelContainerMapped Map(WeirdModelContainer source);
+        public partial CustomMappingContainerMapped Map(CustomMappingContainer source);
 
         // Custom implementation for some bespoke weird mapping - in this case we're 
         // reversing the string on one of the properties.
-        public WeirdModelMapped? MapWeirdModel(WeirdModel? source)
+        public CustomMappingMapped? MapCustom(CustomMapping? source)
         {
             if (source is null)
             {
                 return default;
             }
 
-            return new WeirdModelMapped(new string(source.Name.Reverse().ToArray()));
+            return new CustomMappingMapped(new string(source.Name.Reverse().ToArray()));
         }
     }
 
@@ -197,11 +210,16 @@ namespace Mappit.Tests.MappingGenerationVerification
     public partial class CustomPropertyConversionMapper
     {
         [MapProperty("Name", "Name", ValueConversionMethod = nameof(ReverseText))]
-        public partial WeirdModelMapped Map(WeirdModel source);
+        public partial CustomMappingMapped Map(CustomMapping source);
 
         // Verify we don't *have* to pass the target property name if it's the same as the source
         [MapProperty("Name", ValueConversionMethod = nameof(UpperCase))]
-        public partial WeirdModelMapped MapWithUpperCase(WeirdModel source);
+        public partial CustomMappingMapped MapWithUpperCase(CustomMapping source);
+
+        // Use the same name as a previous map method to ensure that we are locating the correct
+        // method in the class for picking up attributes
+        [MapProperty("Name", ValueConversionMethod = nameof(UpperCase))]
+        public partial CustomMapping Map(CustomMappingMapped source);
 
         private static string ReverseText(string value) => 
             string.IsNullOrEmpty(value) ? value : new string(value.Reverse().ToArray());
