@@ -162,8 +162,8 @@ namespace Mappit.Generator
             var targetIsNullable = targetType.IsNullableType();
             
             // Get the actual enum types (unwrap nullable if needed)
-            var sourceEnumType = sourceIsNullable ? sourceType.GetNullableUnderlyingType() : sourceType;
-            var targetEnumType = targetIsNullable ? targetType.GetNullableUnderlyingType() : targetType;
+            var sourceEnumType = sourceType.GetNullableUnderlyingType();
+            var targetEnumType = targetType.GetNullableUnderlyingType();
 
             var sourceMembers = sourceEnumType.GetMembers().OfType<IFieldSymbol>()
                 .Where(f => f.IsStatic && f.IsConst || f.IsReadOnly).ToDictionary(x => x.Name, StringComparer.OrdinalIgnoreCase);
@@ -240,8 +240,8 @@ namespace Mappit.Generator
 
             var sourceIsNullable = mapping.SourceType.IsNullableType();
             var targetIsNullable = mapping.TargetType.IsNullableType();
-            var sourceType = sourceIsNullable ? mapping.SourceType.GetNullableUnderlyingType() : mapping.SourceType;
-            var targetType = targetIsNullable ? mapping.TargetType.GetNullableUnderlyingType() : mapping.TargetType;
+            var sourceType = mapping.SourceType.GetNullableUnderlyingType();
+            var targetType = mapping.TargetType.GetNullableUnderlyingType();
 
             // We only consider source properties that are:
             // * Publicly accessible
@@ -548,7 +548,7 @@ namespace Mappit.Generator
                             ConfigureImplicitCollectionMappings(validatedMapperClass, mappingInfo.MethodDeclaration, sourceMember.Type, targetMember.Type);
 
                             // If the mapped source or target property is a nullable type, we also need to add maps for them
-                            ConfigureImplicitNullableTypeMappings(validatedMapperClass, mappingInfo.MethodDeclaration, sourceMember.Type, targetMember.Type);
+                            ConfigureImplicitNullableTypeMappings(mapperClass, validatedMapperClass, mappingInfo.MethodDeclaration, sourceMember.Type, targetMember.Type);
                         }
                     }
                 }
@@ -556,17 +556,33 @@ namespace Mappit.Generator
         }
 
         private static void ConfigureImplicitNullableTypeMappings(
+            MapperClassInfo mapperClass,
             ValidatedMapperClassInfo validatedMapperClass,
             SyntaxNode methodDeclaration,
             ITypeSymbol sourceType, 
             ITypeSymbol targetType)
         {
-            if (sourceType.IsNullableType() || targetType.IsNullableType())
+            var sourceIsNullable = sourceType.IsNullableType();
+            var targetIsNullable = targetType.IsNullableType();
+
+            if (sourceIsNullable || targetIsNullable)
             {
                 // Is there already a direct mapping configured between the two?
                 if (validatedMapperClass.HasHapping(sourceType, targetType))
                 {
                     // Nothing to do here, we already have a mapping for this type
+                    return;
+                }
+
+                // We don't need to emit an implicit conversion if *both* types are nullable and no
+                // conversion is required between the two, e.g. DateTime? to DateTime?
+                // By the time we get here, we will have already checked for compatibility between
+                // the underlying types, so if there is no explicit map, then we can assume that the
+                // types are compatible.
+                if (sourceIsNullable 
+                    && targetIsNullable 
+                    && !mapperClass.HasHapping(sourceType.GetNullableUnderlyingType(), targetType.GetNullableUnderlyingType()))
+                {
                     return;
                 }
 
