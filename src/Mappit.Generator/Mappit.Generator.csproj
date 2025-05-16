@@ -16,7 +16,7 @@
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<PackageLicenseFile>LICENSE</PackageLicenseFile>
 		<IsPackable>true</IsPackable>
-		<Version>0.0.5</Version>
+		<Version>0.0.6</Version>
 		<WarningsNotAsErrors>NU5128</WarningsNotAsErrors>
 	</PropertyGroup>
 
