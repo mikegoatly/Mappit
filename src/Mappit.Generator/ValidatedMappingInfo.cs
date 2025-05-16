@@ -23,16 +23,6 @@ namespace Mappit.Generator
             RequiresPartialMethod = !isImplicitMapping;
         }
 
-        protected ValidatedMappingInfo(MappingTypeInfo mappingTypeInfo)
-        {
-            MethodName = mappingTypeInfo.MethodName;
-            SourceType = mappingTypeInfo.SourceType;
-            TargetType = mappingTypeInfo.TargetType;
-            MethodDeclaration = mappingTypeInfo.MethodDeclaration;
-            RequiresGeneration = mappingTypeInfo.RequiresGeneration;
-            RequiresPartialMethod = mappingTypeInfo.RequiresPartialMethod;
-        }
-
         public string MethodName { get; init; }
         public ITypeSymbol SourceType { get; init; }
         public ITypeSymbol TargetType { get; init; }
