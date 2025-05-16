@@ -48,7 +48,7 @@ namespace Mappit.Generator
             source.AppendLine("{");
 
             var classModifiers = string.Join(
-                " ", 
+                " ",
                 mapperClass.ClassDeclarationSyntax.Modifiers
                     .Where(m => !m.IsKind(SyntaxKind.PartialKeyword) && !m.IsKind(SyntaxKind.SealedKeyword))
                     .Select(m => m.Text));
@@ -83,6 +83,11 @@ namespace Mappit.Generator
                 }
             }
 
+            foreach (var mapping in validatedMap.NullableMappings)
+            {
+                EmitNullableMappingMethod(source, validatedMap, mapping);
+            }
+
             source.AppendLine("    }");
             source.AppendLine("}");
 
@@ -101,7 +106,9 @@ namespace Mappit.Generator
             // Generate interface methods for each mapping type
             foreach (var mapping in validatedMap.EnumMappings
                 .Concat<ValidatedMappingInfo>(validatedMap.TypeMappings)
-                .Concat(validatedMap.CollectionMappings.Where(cm => !cm.IsImplicitMapping)))
+                .Concat(validatedMap.CollectionMappings)
+                .Concat(validatedMap.NullableMappings)
+                .Where(cm => !cm.IsImplicitMapping))
             {
                 source.AppendLine($"        /// <summary>");
                 source.AppendLine($"        /// Maps {mapping.SourceType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)} to {mapping.TargetType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)}");
@@ -142,16 +149,50 @@ namespace Mappit.Generator
             }
         }
 
+        private static void EmitNullableMappingMethod(StringBuilder source, ValidatedMapperClassInfo classInfo, ValidatedNullableMappingTypeInfo mapping)
+        {
+            EmitMappingMethodDeclaration(source, mapping);
+
+            bool needsElementMapping = classInfo.TryGetMappedType(
+                mapping.SourceNullableUnderlyingType ?? mapping.SourceType, 
+                mapping.TargetNullableUnderlyingType ?? mapping.TargetType, 
+                out var underlyingTypeMapping);
+
+            source.AppendLine("            return source is {} notNullSource");
+            source.Append("                ? ");
+            if (needsElementMapping)
+            {
+                // If we need to map the underlying type, we need to call the mapping method
+                source.AppendLine($"{underlyingTypeMapping!.MethodName}(notNullSource)");
+            }
+            else
+            {
+                // No mapping needed; just return the value
+                source.AppendLine($"notNullSource");
+            }
+
+            source.Append("                : ");
+            if (mapping.TargetNullableUnderlyingType is null)
+            {
+                // If the target type is not nullable, there's a runtime conversion error
+                source.AppendLine($"throw new global::System.ArgumentNullException(nameof(source), \"Cannot map null to non-nullable type {FormatTypeForErrorMessage(mapping.TargetType)}\");");
+            }
+            else
+            {
+                // If the target type is nullable, we can just return null
+                source.AppendLine($"default({mapping.TargetType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)});");
+            }
+
+            source.AppendLine("        }");
+        }
+
         private static void EmitCollectionMappingMethod(StringBuilder source, ValidatedMapperClassInfo classInfo, ValidatedCollectionMappingTypeInfo mapping)
         {
             var (sourceElementType, targetElementType) = mapping.ElementTypeMap;
 
             EmitMappingMethodDeclaration(source, mapping);
-            source.AppendLine("            if (source is null)");
-            source.AppendLine("            {");
-            source.AppendLine("                return default;");
-            source.AppendLine("            }");
-            source.AppendLine();
+            EmitSourceNullCheck(source, mapping);
+
             source.Append("            ");
 
             bool needsElementMapping = classInfo.TryGetMappedType(sourceElementType, targetElementType, out var elementMapping);
@@ -201,13 +242,9 @@ namespace Mappit.Generator
             bool needsValueMapping = classInfo.TryGetMappedType(sourceElementType, targetElementType, out var valueMapping);
 
             EmitMappingMethodDeclaration(source, mapping);
-            source.AppendLine("            if (source is null)");
-            source.AppendLine("            {");
-            source.AppendLine("                return default;");
-            source.AppendLine("            }");
-            source.AppendLine();
+            EmitSourceNullCheck(source, mapping);
+            
             source.Append("            ");
-
             var concreteReturnType = TypeHelpers.InferConcreteDictionaryType(mapping.TargetType, targetKeyType, targetElementType);
             if (needsKeyMapping || needsValueMapping)
             {
@@ -248,11 +285,7 @@ namespace Mappit.Generator
             }
 
             EmitMappingMethodDeclaration(source, mapping);
-            source.AppendLine("            if (source is null)");
-            source.AppendLine("            {");
-            source.AppendLine("                return default;");
-            source.AppendLine("            }");
-            source.AppendLine();
+            EmitSourceNullCheck(source, mapping);
 
             // Start object initialization
             source.Append($"            return new {mapping.TargetType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}");
@@ -286,14 +319,14 @@ namespace Mappit.Generator
                 source.Append("()");
             }
 
-            if (mapping.MemberMappings.Values.Any(m => m.TargetMapping == TargetMapping.Initialization))
+            if (mapping.MemberMappings.Any(m => m.TargetMapping == TargetMapping.Initialization))
             {
                 // Start object initializer
                 source.AppendLine();
                 source.AppendLine("            {");
 
                 // Handle custom property mappings first (skip those already set by constructor)
-                foreach (var propertyMapping in mapping.MemberMappings.Values.Where(x => x.TargetMapping == TargetMapping.Initialization))
+                foreach (var propertyMapping in mapping.MemberMappings.Where(x => x.TargetMapping == TargetMapping.Initialization))
                 {
                     source.Append($"                {propertyMapping.TargetProperty.Name} = ");
                     EmitSourcePropertyReference(source, classInfo, propertyMapping);
@@ -312,6 +345,19 @@ namespace Mappit.Generator
             source.AppendLine(";");
 
             source.AppendLine("        }");
+        }
+
+        private static void EmitSourceNullCheck(StringBuilder source, ValidatedMappingInfo mapping)
+        {
+            var targetType = mapping.TargetType;
+            if (!targetType.IsValueType)
+            {
+                source.AppendLine("            if (source is null)");
+                source.AppendLine("            {");
+                source.AppendLine($"                return default({mapping.TargetType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)});");
+                source.AppendLine("            }");
+                source.AppendLine();
+            }
         }
 
         private static void GenerateEnumMappingMethod(StringBuilder source, ValidatedMappingEnumInfo mapping)

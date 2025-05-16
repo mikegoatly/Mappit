@@ -35,8 +35,9 @@ namespace Mappit.Tests.MappingGenerationVerification
             Assert.Equal(person.LastName, dto.LastName);
             Assert.Equal(person.BirthDate, dto.BirthDate);
             Assert.Equal(person.Email, dto.Email);
+            Assert.Null(person.Height);
         }
-
+        
         [Fact]
         public void Map_DtoToPerson_ShouldMapSharedProperties()
         {
@@ -60,6 +61,7 @@ namespace Mappit.Tests.MappingGenerationVerification
             Assert.Equal(dto.BirthDate, person.BirthDate);
             Assert.Equal(dto.Email, person.Email);
             Assert.Equal(0, person.Age); // Non-mapped property should have default value
+            Assert.Null(person.Height);
         }
 
         [Fact]
@@ -78,6 +80,7 @@ namespace Mappit.Tests.MappingGenerationVerification
         public DateTime BirthDate { get; set; }
         public int Age { get; set; }
         public required string Email { get; set; }
+        public int? Height { get; set; }
     }
 
     internal sealed class PersonDto
@@ -88,6 +91,7 @@ namespace Mappit.Tests.MappingGenerationVerification
         public DateTime BirthDate { get; set; }
         public int Age { get; set; }
         public required string Email { get; set; }
+        public int? Height { get; set; }
     }
 
     [Mappit]

@@ -55,6 +55,16 @@ namespace Mappit.Tests.MappingGenerationVerification
             Assert.Equal(Color.Red, model.PrimaryColor);
             Assert.Equal(Color.Blue, model.SecondaryColor);
         }
+
+        [Fact]
+        public void Map_BetweenNullableAndNonNullable()
+        {
+            var mapper = new TestMapperWithExplicitNullableEnums();
+
+            // Mapping between nullables should work
+            Assert.Equal((DisplayColor?)DisplayColor.Blue, mapper.Map((Color?)Color.Blue));
+
+        }
     }
 
     public enum Color
@@ -76,7 +86,7 @@ namespace Mappit.Tests.MappingGenerationVerification
         public int Id { get; set; }
         public required string Name { get; init; }
         public Color PrimaryColor { get; set; }
-        public Color SecondaryColor { get; set; }
+        public Color? SecondaryColor { get; set; }
     }
 
     public class DtoWithEnum
@@ -84,7 +94,7 @@ namespace Mappit.Tests.MappingGenerationVerification
         public int Id { get; set; }
         public required string Name { get; init; }
         public DisplayColor PrimaryColor { get; set; }
-        public DisplayColor SecondaryColor { get; set; }
+        public DisplayColor? SecondaryColor { get; set; }
     }
 
     [Mappit]
@@ -93,9 +103,18 @@ namespace Mappit.Tests.MappingGenerationVerification
         public partial DtoWithEnum Map(ModelWithEnum source);
         
         public partial ModelWithEnum Map(DtoWithEnum source);
-        
+
+        [ReverseMap]
         public partial Color Map(DisplayColor source);
-        
-        public partial DisplayColor Map(Color source);
+    }
+
+    [Mappit]
+    public partial class TestMapperWithExplicitNullableEnums
+    {
+        public partial DisplayColor? Map(Color? source);
+
+        public partial DisplayColor MapToNonNullable(Color? source);
+
+        public partial DisplayColor? MapToNullable(Color? source);
     }
 }

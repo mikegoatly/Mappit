@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 using Microsoft.CodeAnalysis;
 
@@ -7,9 +8,25 @@ namespace Mappit.Generator
 {
     internal sealed record ValidatedMappingTypeInfo : ValidatedMappingInfo
     {
-        public ValidatedMappingTypeInfo(MappingTypeInfo mappingTypeInfo)
-            : base(mappingTypeInfo)
+        private ValidatedMappingTypeInfo(
+            string methodName,
+            ValidatedMappingMemberInfoSet memberMappings,
+            ITypeSymbol sourceType,
+            ITypeSymbol targetType,
+            IMethodSymbol constructor,
+            bool isImplicitMapping,
+            MappingTypeInfo mapping)
+            : base(
+                  methodName,
+                  sourceType,
+                  targetType,
+                  mapping.MethodDeclaration,
+                  isImplicitMapping)
         {
+            Constructor = constructor;
+            MemberMappings = memberMappings;
+            RequiresGeneration = mapping.RequiresGeneration;
+            RequiresPartialMethod &= mapping.RequiresPartialMethod;
         }
 
         /// <summary>
@@ -20,18 +37,40 @@ namespace Mappit.Generator
         /// However, this will mean that if a property is named "Name" and another property is named "name" we will
         /// not be able to distinguish between them.
         /// </remarks>
-        public Dictionary<string, ValidatedMappingMemberInfo> MemberMappings { get; } = new(StringComparer.OrdinalIgnoreCase);
+        public ValidatedMappingMemberInfoSet MemberMappings { get; }
 
-        public IMethodSymbol? Constructor { get; internal set; }
+        public IMethodSymbol Constructor { get; }
 
-        public void AddValidMapping(IPropertySymbol sourceProperty, IPropertySymbol targetProperty, IMethodSymbol? valueConversionMethod = null)
+        public static ValidatedMappingTypeInfo Implicit(
+            MappingTypeInfo mapping,
+            ITypeSymbol sourceEnumType,
+            ITypeSymbol targetEnumType,
+            ValidatedMappingMemberInfoSet memberMappings,
+            IMethodSymbol constructor)
         {
-            MemberMappings.Add(targetProperty.Name, ValidatedMappingMemberInfo.Valid(sourceProperty, targetProperty, valueConversionMethod));
+            return new ValidatedMappingTypeInfo(
+                BuildImplicitMappingMethodName(sourceEnumType, targetEnumType),
+                memberMappings,
+                sourceEnumType,
+                targetEnumType,
+                constructor,
+                true,
+                mapping);
         }
 
-        public void AddInvalidMapping(IPropertySymbol sourceProperty, IPropertySymbol targetProperty)
+        public static ValidatedMappingTypeInfo Explicit(
+            MappingTypeInfo mapping,
+            ValidatedMappingMemberInfoSet memberMappings,
+            IMethodSymbol constructor)
         {
-            MemberMappings.Add(targetProperty.Name, ValidatedMappingMemberInfo.Invalid(sourceProperty, targetProperty));
+            return new ValidatedMappingTypeInfo(
+                mapping.MethodName,
+                memberMappings,
+                mapping.SourceType,
+                mapping.TargetType,
+                constructor,
+                false,
+                mapping);
         }
     }
 }

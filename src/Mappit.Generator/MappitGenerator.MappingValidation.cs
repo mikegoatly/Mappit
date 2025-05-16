@@ -24,12 +24,13 @@ namespace Mappit.Generator
                     {
                         context.ReportDiagnostic(code, message, mapping.MethodDeclaration);
                     }
+
                     continue;
                 }
 
                 if (mapping.IsEnum)
                 {
-                    ValidateEnumMapping(context, mapping, validatedMapperClass);
+                    ValidateEnumMapping(context, mapperClass, mapping, validatedMapperClass);
                 }
                 else if (TypeHelpers.IsDictionaryType(mapping.SourceType, out var sourceKeyType, out var sourceElementType))
                 {
@@ -152,14 +153,22 @@ namespace Mappit.Generator
             return true;
         }
 
-        private static void ValidateEnumMapping(SourceProductionContext context, MappingTypeInfo mapping, ValidatedMapperClassInfo validatedMapperClassInfo)
+        private static void ValidateEnumMapping(SourceProductionContext context, MapperClassInfo mapperClass, MappingTypeInfo mapping, ValidatedMapperClassInfo validatedMapperClass)
         {
-            var validatedMapping = new ValidatedMappingEnumInfo(mapping);
+            // Handle nullable enums
+            var sourceType = mapping.SourceType;
+            var targetType = mapping.TargetType;
+            var sourceIsNullable = sourceType.IsNullableType();
+            var targetIsNullable = targetType.IsNullableType();
+            
+            // Get the actual enum types (unwrap nullable if needed)
+            var sourceEnumType = sourceType.GetNullableUnderlyingType();
+            var targetEnumType = targetType.GetNullableUnderlyingType();
 
-            var sourceMembers = mapping.SourceType.GetMembers().OfType<IFieldSymbol>()
+            var sourceMembers = sourceEnumType.GetMembers().OfType<IFieldSymbol>()
                 .Where(f => f.IsStatic && f.IsConst || f.IsReadOnly).ToDictionary(x => x.Name, StringComparer.OrdinalIgnoreCase);
 
-            var targetMembers = mapping.TargetType.GetMembers().OfType<IFieldSymbol>()
+            var targetMembers = targetEnumType.GetMembers().OfType<IFieldSymbol>()
                 .Where(f => f.IsStatic && f.IsConst || f.IsReadOnly).ToDictionary(x => x.Name, StringComparer.OrdinalIgnoreCase);
 
             if (mapping.PropertyMappings.Count > 0)
@@ -170,6 +179,8 @@ namespace Mappit.Generator
                     mapping.MethodDeclaration);
             }
 
+            var memberMappings = new List<ValidatedMappingEnumMemberInfo>();
+
             // First validate any custom mappings that have been provided
             foreach (var enumMapping in mapping.EnumValueMappings.Values)
             {
@@ -177,7 +188,7 @@ namespace Mappit.Generator
                 {
                     context.ReportDiagnostic(
                         MappitErrorCode.UserMappedSourceEnumValueNotFound,
-                        $"Source enum value '{enumMapping.SourceName}' not found in any enum property of type '{FormatTypeForErrorMessage(mapping.SourceType)}'",
+                        $"Source enum value '{enumMapping.SourceName}' not found in any enum property of type '{FormatTypeForErrorMessage(sourceEnumType)}'",
                         enumMapping.SourceArgument);
                 }
 
@@ -185,25 +196,40 @@ namespace Mappit.Generator
                 {
                     context.ReportDiagnostic(
                         MappitErrorCode.UserMappedTargetEnumValueNotFound,
-                        $"Target enum value '{enumMapping.TargetName}' not found in any enum property of type '{FormatTypeForErrorMessage(mapping.TargetType)}'",
+                        $"Target enum value '{enumMapping.TargetName}' not found in any enum property of type '{FormatTypeForErrorMessage(targetEnumType)}'",
                         enumMapping.TargetArgument);
                 }
 
                 if (sourceMember is not null && targetMember is not null)
                 {
-                    validatedMapping.MemberMappings.Add(new ValidatedMappingEnumMemberInfo(sourceMember, targetMember));
+                    memberMappings.Add(new ValidatedMappingEnumMemberInfo(sourceMember, targetMember));
                 }
             }
 
-            ValidateRemainingEnumMembers(context, mapping, validatedMapping, sourceMembers, targetMembers);
+            ValidateRemainingEnumMembers(context, mapping, memberMappings, sourceMembers, targetMembers);
 
-            validatedMapperClassInfo.EnumMappings.Add(validatedMapping);
+            if (sourceIsNullable || targetIsNullable)
+            {
+                // Is there already a mapping for the underlying enum, either user defined, or currently calculated?
+                // TODO consider carrying around the original user mapper class with the validated mapper class so we can unify these checks and reduce passed parameters
+                if (!(mapperClass.HasHapping(sourceEnumType, targetEnumType) || validatedMapperClass.HasHapping(sourceEnumType, targetEnumType)))
+                {
+                    // Create an additional mapping for the nullable versions of the type
+                    validatedMapperClass.EnumMappings.Add(ValidatedMappingEnumInfo.Implicit(mapping, sourceEnumType, targetEnumType, memberMappings));
+                }
+                
+                // Also register the explicit nullable mapping for the type
+                validatedMapperClass.NullableMappings.Add(ValidatedNullableMappingTypeInfo.Explicit(mapping));
+            }
+            else
+            {
+                // Register the validated enum mapping
+                validatedMapperClass.EnumMappings.Add(ValidatedMappingEnumInfo.Explicit(mapping, memberMappings));
+            }
         }
 
         private static bool ValidateTypeMapping(SourceProductionContext context, MapperClassInfo mapperClass, MappingTypeInfo mapping, ValidatedMapperClassInfo validatedMapperClass)
         {
-            var validatedMapping = new ValidatedMappingTypeInfo(mapping);
-
             if (mapping.EnumValueMappings.Count > 0)
             {
                 context.ReportDiagnostic(
@@ -212,19 +238,26 @@ namespace Mappit.Generator
                     mapping.MethodDeclaration);
             }
 
+            var sourceIsNullable = mapping.SourceType.IsNullableType();
+            var targetIsNullable = mapping.TargetType.IsNullableType();
+            var sourceType = mapping.SourceType.GetNullableUnderlyingType();
+            var targetType = mapping.TargetType.GetNullableUnderlyingType();
+
             // We only consider source properties that are:
             // * Publicly accessible
             // * Not static
             // * Not write-only (i.e. they have a getter)
-            var sourceProperties = GetMappableProperties(mapping.SourceType)
+            var sourceProperties = GetMappableProperties(sourceType)
                 .Where(f => !f.IsWriteOnly)
                 .ToDictionary(x => x.Name, StringComparer.OrdinalIgnoreCase);
 
-            var targetProperties = GetMappableProperties(mapping.TargetType)
+            var targetProperties = GetMappableProperties(targetType)
                 .ToDictionary(x => x.Name, StringComparer.OrdinalIgnoreCase);
 
             // First validate any custom mappings that have been provided
             var successfullyValidated = true;
+            var memberMappings = new ValidatedMappingMemberInfoSet();
+
             foreach (var propertyMapping in mapping.PropertyMappings.Values)
             {
                 // Report diagnostics if properties don't exist
@@ -232,7 +265,7 @@ namespace Mappit.Generator
                 {
                     context.ReportDiagnostic(
                         MappitErrorCode.UserMappedSourcePropertyNotFound,
-                        $"Source property '{propertyMapping.SourceName}' not found in type '{FormatTypeForErrorMessage(mapping.SourceType)}'",
+                        $"Source property '{propertyMapping.SourceName}' not found in type '{FormatTypeForErrorMessage(sourceType)}'",
                         propertyMapping.SourceArgument);
 
                     successfullyValidated = false;
@@ -242,7 +275,7 @@ namespace Mappit.Generator
                 {
                     context.ReportDiagnostic(
                         MappitErrorCode.UserMappedTargetPropertyNotFound,
-                        $"Target property '{propertyMapping.TargetName}' not found in type '{FormatTypeForErrorMessage(mapping.TargetType)}'",
+                        $"Target property '{propertyMapping.TargetName}' not found in type '{FormatTypeForErrorMessage(targetType)}'",
                         propertyMapping.TargetArgument);
 
                     successfullyValidated = false;
@@ -254,7 +287,7 @@ namespace Mappit.Generator
                     bool isCompatible = propertyMapping.ValueConversionMethod is not null || AreCompatibleTypes(mapperClass, sourceProperty.Type, targetProperty.Type);
                     if (!isCompatible)
                     {
-                        validatedMapping.AddInvalidMapping(sourceProperty, targetProperty);
+                        memberMappings.Add(ValidatedMappingMemberInfo.Invalid(sourceProperty, targetProperty));
                         ReportIncompatibleSourceAndTargetPropertyTypesDiagnostic(context, sourceProperty, targetProperty, propertyMapping.SyntaxNode);
                         successfullyValidated = false;
                     }
@@ -264,26 +297,44 @@ namespace Mappit.Generator
                         {
                             if (ValidateValueConversionMethod(context, propertyMapping.SyntaxNode, sourceProperty.Type, targetProperty.Type, conversionMethod))
                             {
-                                validatedMapping.AddValidMapping(sourceProperty, targetProperty, conversionMethod);
+                                memberMappings.Add(ValidatedMappingMemberInfo.Valid(sourceProperty, targetProperty, conversionMethod));
                             }
                             else
                             {
-                                validatedMapping.AddInvalidMapping(sourceProperty, targetProperty);
+                                memberMappings.Add(ValidatedMappingMemberInfo.Invalid(sourceProperty, targetProperty));
                             }
                         }
                         else
                         {
-                            validatedMapping.AddValidMapping(sourceProperty, targetProperty);
+                            memberMappings.Add(ValidatedMappingMemberInfo.Valid(sourceProperty, targetProperty));
                         }
                     }
                 }
             }
 
-            ValidateRemainingPropertyMappings(context, mapperClass, validatedMapperClass, mapping, validatedMapping, sourceProperties, targetProperties);
+            ValidateRemainingPropertyMappings(context, mapperClass, validatedMapperClass, mapping, memberMappings, sourceProperties, targetProperties);
 
-            if (ValidateConstructionRequirements(context, mapperClass, validatedMapping))
+            if (ValidateConstructionRequirements(context, mapperClass, mapping, targetType, memberMappings, out var constructor))
             {
-                validatedMapperClass.TypeMappings.Add(validatedMapping);
+                if (sourceIsNullable || targetIsNullable)
+                {
+                    // Is there already a mapping for the underlying enum, either user defined, or currently calculated?
+                    // TODO consider carrying around the original user mapper class with the validated mapper class so we can unify these checks and reduce passed parameters
+                    if (!(mapperClass.HasHapping(sourceType, targetType) || validatedMapperClass.HasHapping(sourceType, targetType)))
+                    {
+                        // Create an additional mapping for the nullable versions of the type
+                        validatedMapperClass.TypeMappings.Add(ValidatedMappingTypeInfo.Implicit(mapping, sourceType, targetType, memberMappings, constructor!));
+                    }
+
+                    // Also register the explicit nullable mapping for the type
+                    validatedMapperClass.NullableMappings.Add(ValidatedNullableMappingTypeInfo.Explicit(mapping));
+                }
+                else
+                {
+                    // Register the validated enum mapping
+                    validatedMapperClass.TypeMappings.Add(ValidatedMappingTypeInfo.Explicit(mapping, memberMappings, constructor!));
+                }
+
                 return successfullyValidated;
             }
 
@@ -338,15 +389,22 @@ namespace Mappit.Generator
                 syntaxNode);
         }
 
-        private static bool ValidateConstructionRequirements(SourceProductionContext context, MapperClassInfo mapperClass, ValidatedMappingTypeInfo mapping)
+        private static bool ValidateConstructionRequirements(
+            SourceProductionContext context, 
+            MapperClassInfo mapperClass, 
+            MappingTypeInfo mapping,
+            ITypeSymbol targetType, 
+            ValidatedMappingMemberInfoSet memberMappings,
+            out IMethodSymbol? constructor)
         {
-            var bestCtor = FindBestConstructor(mapping);
+            constructor = default;
+            var bestCtor = FindBestConstructor(targetType, memberMappings);
 
             if (bestCtor is null)
             {
                 context.ReportDiagnostic(
                     MappitErrorCode.NoSuitableConstructorFound,
-                    $"No suitable constructor found for type '{FormatTypeForErrorMessage(mapping.TargetType)}'. Parameter names must match the target type's property names.",
+                    $"No suitable constructor found for type '{FormatTypeForErrorMessage(targetType)}'. Parameter names must match the target type's property names.",
                     mapping.MethodDeclaration);
 
                 return false;
@@ -356,7 +414,7 @@ namespace Mappit.Generator
             // Then we can validate that the target properties aren't read only.
             var constructorParams = bestCtor.Parameters.ToDictionary(x => x.Name, StringComparer.OrdinalIgnoreCase);
 
-            foreach (var propertyMapping in mapping.MemberMappings.Values)
+            foreach (var propertyMapping in memberMappings)
             {
                 if (constructorParams.TryGetValue(propertyMapping.TargetProperty.Name, out var constructorParam))
                 {
@@ -391,16 +449,15 @@ namespace Mappit.Generator
                 }
             }
 
-            mapping.Constructor = bestCtor;
-
+            constructor = bestCtor;
             return true;
         }
 
-        private static IMethodSymbol? FindBestConstructor(ValidatedMappingTypeInfo mapping)
+        private static IMethodSymbol? FindBestConstructor(ITypeSymbol targetType, ValidatedMappingMemberInfoSet memberMappings)
         {
             (IMethodSymbol? ctor, int bestMatchCount) bestCtor = (null, 0);
 
-            var ctors = mapping.TargetType.GetMembers()
+            var ctors = targetType.GetMembers()
                 .Where(m => m.Kind == SymbolKind.Method && m.Name == ".ctor")
                 .Cast<IMethodSymbol>()
                 .OrderByDescending(m => m.Parameters.Length)
@@ -412,10 +469,9 @@ namespace Mappit.Generator
 
                 foreach (var param in ctor.Parameters)
                 {
-                    // Try to find a mapping that matches parameter name and type. The lookup is keyed by
-                    // the target property name, so we're expecting the target constructor parameter name to
-                    // match the target property name.
-                    if (mapping.MemberMappings.ContainsKey(param.Name))
+                    // Try to find a mapping that matches parameter name and type. We're expecting the
+                    // target constructor parameter name to match the target property name.
+                    if (memberMappings.ContainsTargetName(param.Name))
                     {
                         matchingParams++;
                     }
@@ -451,7 +507,7 @@ namespace Mappit.Generator
             MapperClassInfo mapperClass,
             ValidatedMapperClassInfo validatedMapperClass,
             MappingTypeInfo mappingInfo,
-            ValidatedMappingTypeInfo validatedMapping,
+            ValidatedMappingMemberInfoSet memberMappings,
             Dictionary<string, IPropertySymbol> sourceProperties,
             Dictionary<string, IPropertySymbol> targetProperties)
         {
@@ -479,20 +535,63 @@ namespace Mappit.Generator
                         // Check if property types are compatible
                         if (!AreCompatibleTypes(mapperClass, sourceMember.Type, targetMember.Type))
                         {
-                            validatedMapping.AddInvalidMapping(sourceMember, targetMember);
+                            memberMappings.Add(ValidatedMappingMemberInfo.Invalid(sourceMember, targetMember));
                             ReportIncompatibleSourceAndTargetPropertyTypesDiagnostic(context, sourceMember, targetMember, mappingInfo.MethodDeclaration);
                         }
                         else
                         {
                             // The mapping is valid, so we can add it to the validated mapping
-                            validatedMapping.AddValidMapping(sourceMember, targetMember);
+                            memberMappings.Add(ValidatedMappingMemberInfo.Valid(sourceMember, targetMember));
 
                             // If the mapped property is a collection of some sort, we also need to generate some additional
                             // type mappings that implement the collection mapping logic.
                             ConfigureImplicitCollectionMappings(validatedMapperClass, mappingInfo.MethodDeclaration, sourceMember.Type, targetMember.Type);
+
+                            // If the mapped source or target property is a nullable type, we also need to add maps for them
+                            ConfigureImplicitNullableTypeMappings(mapperClass, validatedMapperClass, mappingInfo.MethodDeclaration, sourceMember.Type, targetMember.Type);
                         }
                     }
                 }
+            }
+        }
+
+        private static void ConfigureImplicitNullableTypeMappings(
+            MapperClassInfo mapperClass,
+            ValidatedMapperClassInfo validatedMapperClass,
+            SyntaxNode methodDeclaration,
+            ITypeSymbol sourceType, 
+            ITypeSymbol targetType)
+        {
+            var sourceIsNullable = sourceType.IsNullableType();
+            var targetIsNullable = targetType.IsNullableType();
+
+            if (sourceIsNullable || targetIsNullable)
+            {
+                // Is there already a direct mapping configured between the two?
+                if (validatedMapperClass.HasHapping(sourceType, targetType))
+                {
+                    // Nothing to do here, we already have a mapping for this type
+                    return;
+                }
+
+                // We don't need to emit an implicit conversion if *both* types are nullable and no
+                // conversion is required between the two, e.g. DateTime? to DateTime?
+                // By the time we get here, we will have already checked for compatibility between
+                // the underlying types, so if there is no explicit map, then we can assume that the
+                // types are compatible.
+                if (sourceIsNullable 
+                    && targetIsNullable 
+                    && !mapperClass.HasHapping(sourceType.GetNullableUnderlyingType(), targetType.GetNullableUnderlyingType()))
+                {
+                    return;
+                }
+
+                // TODO If the target is not nullable, but the source is, raise a warning
+                // that there may be conversion errors at runtime.
+
+                // Create an additional mapping for the nullable versions of the type
+                validatedMapperClass.NullableMappings.Add(
+                    ValidatedNullableMappingTypeInfo.Implicit(sourceType, targetType, methodDeclaration));
             }
         }
 
@@ -556,7 +655,7 @@ namespace Mappit.Generator
         private static void ValidateRemainingEnumMembers(
             SourceProductionContext context,
             MappingTypeInfo mappingInfo,
-            ValidatedMappingEnumInfo validatedMapping,
+            List<ValidatedMappingEnumMemberInfo> memberMappings,
             Dictionary<string, IFieldSymbol> sourceMembers,
             Dictionary<string, IFieldSymbol> targetMembers)
         {
@@ -575,7 +674,7 @@ namespace Mappit.Generator
                     }
                     else
                     {
-                        validatedMapping.MemberMappings.Add(new ValidatedMappingEnumMemberInfo(sourceMember, targetMember));
+                        memberMappings.Add(new ValidatedMappingEnumMemberInfo(sourceMember, targetMember));
                     }
                 }
             }
@@ -583,44 +682,7 @@ namespace Mappit.Generator
 
         private static bool AreCompatibleTypes(MapperClassInfoBase mapperClass, ITypeSymbol sourceType, ITypeSymbol targetType)
         {
-            // Simple case: if the types are the same, they're compatible
-            if (sourceType.Equals(targetType, SymbolEqualityComparer.Default))
-            {
-                return true;
-            }
-
-            // Check if the types are compatible because they've already been mapped.
-            // For example, sourceType may be TypeA and targetType may be TypeB, which are not the same type, but they
-            // may be compatible because the user has mapped them.
-            if (mapperClass.HasHapping(sourceType, targetType))
-            {
-                return true;
-            }
-
-            // Dictionary types - these also have collection/enumerable interfaces, so we need to check them first
-            if (TypeHelpers.IsDictionaryType(sourceType, out var sourceKeyType, out var sourceValueType) &&
-                TypeHelpers.IsDictionaryType(targetType, out var targetKeyType, out var targetValueType))
-            {
-                if (sourceKeyType != null && targetKeyType != null && sourceValueType != null && targetValueType != null)
-                {
-                    // Dictionaries are compatible if their key and value types are compatible
-                    return AreCompatibleTypes(mapperClass, sourceKeyType, targetKeyType) &&
-                           AreCompatibleTypes(mapperClass, sourceValueType, targetValueType);
-                }
-            }
-
-            // Check for collection types
-            if (TypeHelpers.IsCollectionType(sourceType, out var sourceElementType) &&
-                TypeHelpers.IsCollectionType(targetType, out var targetElementType))
-            {
-                if (sourceElementType != null && targetElementType != null)
-                {
-                    // Collections are compatible if their element types are compatible
-                    return AreCompatibleTypes(mapperClass, sourceElementType, targetElementType);
-                }
-            }
-
-            return false;
+            return TypeCompatibilityChecker.AreCompatibleTypes(mapperClass, sourceType, targetType);
         }
 
         /// <summary>
