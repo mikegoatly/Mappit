@@ -155,15 +155,12 @@ namespace Mappit.Generator
 
         private static void ValidateEnumMapping(SourceProductionContext context, MapperClassInfo mapperClass, MappingTypeInfo mapping, ValidatedMapperClassInfo validatedMapperClass)
         {
-            // Handle nullable enums
-            var sourceType = mapping.SourceType;
-            var targetType = mapping.TargetType;
-            var sourceIsNullable = sourceType.IsNullableType();
-            var targetIsNullable = targetType.IsNullableType();
+            var sourceIsNullable = mapping.SourceType.IsNullableType();
+            var targetIsNullable = mapping.TargetType.IsNullableType();
             
             // Get the actual enum types (unwrap nullable if needed)
-            var sourceEnumType = sourceType.GetNullableUnderlyingType();
-            var targetEnumType = targetType.GetNullableUnderlyingType();
+            var sourceEnumType = mapping.SourceType.GetNullableUnderlyingType();
+            var targetEnumType = mapping.TargetType.GetNullableUnderlyingType();
 
             var sourceMembers = sourceEnumType.GetMembers().OfType<IFieldSymbol>()
                 .Where(f => f.IsStatic && f.IsConst || f.IsReadOnly).ToDictionary(x => x.Name, StringComparer.OrdinalIgnoreCase);
@@ -541,11 +538,12 @@ namespace Mappit.Generator
                         else
                         {
                             // The mapping is valid, so we can add it to the validated mapping
-                            memberMappings.Add(ValidatedMappingMemberInfo.Valid(sourceMember, targetMember));
+                            var memberMapping = ValidatedMappingMemberInfo.Valid(sourceMember, targetMember);
+                            memberMappings.Add(memberMapping);
 
                             // If the mapped property is a collection of some sort, we also need to generate some additional
                             // type mappings that implement the collection mapping logic.
-                            ConfigureImplicitCollectionMappings(validatedMapperClass, mappingInfo.MethodDeclaration, sourceMember.Type, targetMember.Type);
+                            ConfigureImplicitCollectionMappings(mappingInfo, memberMapping, validatedMapperClass, mappingInfo.MethodDeclaration, sourceMember.Type, targetMember.Type);
 
                             // If the mapped source or target property is a nullable type, we also need to add maps for them
                             ConfigureImplicitNullableTypeMappings(mapperClass, validatedMapperClass, mappingInfo.MethodDeclaration, sourceMember.Type, targetMember.Type);
@@ -599,7 +597,9 @@ namespace Mappit.Generator
         /// Configures implicit mappings required for collections/dictionaries.
         /// </summary>
         private static void ConfigureImplicitCollectionMappings(
-            ValidatedMapperClassInfo mapperClass,
+            MappingTypeInfo mapping,
+            ValidatedMappingMemberInfo? memberMapping,
+            ValidatedMapperClassInfo validatedMapperClass,
             SyntaxNode originatingSyntaxNode,
             ITypeSymbol sourceType,
             ITypeSymbol targetType)
@@ -610,22 +610,36 @@ namespace Mappit.Generator
             {
                 if (sourceKeyType != null && targetKeyType != null && sourceValueType != null && targetValueType != null)
                 {
-                    // Check we don't already have a mapping for the dictionary type - if not create one.
-                    if (!mapperClass.HasHapping(sourceType, targetType))
+                    // If we don't need to map between the key or element type and the user is allowing us to
+                    // copy collections by ref, AND the dictionary type is compatible, we don't need to do anything here.
+                    var mappingRequired = mapping.DeepCopyCollectionsAndDictionaries 
+                        || !TargetCollectionTypeIsAssignableFromSource(sourceType, targetType);
+
+                    if (memberMapping is not null && !mappingRequired)
                     {
-                        // We've not got a mapping for this exact source to target type yet
-                        mapperClass.CollectionMappings.Add(
-                            ValidatedCollectionMappingTypeInfo.Implicit(
-                                sourceType,
-                                targetType,
-                                originatingSyntaxNode,
-                                CollectionKind.Dictionary,
-                                (sourceValueType, targetValueType),
-                                (sourceKeyType, targetKeyType)));
+                        // Update the member mapping to indicate that we're forcing a reference copy
+                        memberMapping.ForceCopyByReference = true;
                     }
 
-                    ConfigureImplicitCollectionMappings(mapperClass, originatingSyntaxNode, sourceKeyType, targetKeyType);
-                    ConfigureImplicitCollectionMappings(mapperClass, originatingSyntaxNode, sourceValueType, targetValueType);
+                    if (mappingRequired)
+                    {
+                        // Check we don't already have a mapping for the dictionary type - if not create one.
+                        if (!validatedMapperClass.HasHapping(sourceType, targetType))
+                        {
+                            // We've not got a mapping for this exact source to target type yet
+                            validatedMapperClass.CollectionMappings.Add(
+                                ValidatedCollectionMappingTypeInfo.Implicit(
+                                    sourceType,
+                                    targetType,
+                                    originatingSyntaxNode,
+                                    CollectionKind.Dictionary,
+                                    (sourceValueType, targetValueType),
+                                    (sourceKeyType, targetKeyType)));
+                        }
+
+                        ConfigureImplicitCollectionMappings(mapping, null, validatedMapperClass, originatingSyntaxNode, sourceKeyType, targetKeyType);
+                        ConfigureImplicitCollectionMappings(mapping, null, validatedMapperClass, originatingSyntaxNode, sourceValueType, targetValueType);
+                    }
                 }
             }
             // Check if both properties are collections
@@ -634,22 +648,71 @@ namespace Mappit.Generator
             {
                 if (sourceElementType != null && targetElementType != null)
                 {
-                    // Check we don't already have a mapping for the collection type - if not create one.
-                    if (!mapperClass.HasHapping(sourceType, targetType))
+                    // If we don't need to map between the element type and the user is allowing us to
+                    // copy collections by ref, we don't need to do anything here.
+                    var mappingRequired = mapping.DeepCopyCollectionsAndDictionaries 
+                        || !TargetCollectionTypeIsAssignableFromSource(sourceType, targetType);
+
+                    if (memberMapping is not null && !mappingRequired)
                     {
-                        // We've not got a mapping for this exact source to target type yet
-                        mapperClass.CollectionMappings.Add(
-                            ValidatedCollectionMappingTypeInfo.Implicit(
-                                sourceType,
-                                targetType,
-                                originatingSyntaxNode,
-                                CollectionKind.Collection,
-                                (sourceElementType, targetElementType)));
+                        // Update the member mapping to indicate that we're forcing a reference copy
+                        memberMapping.ForceCopyByReference = true;
                     }
 
-                    ConfigureImplicitCollectionMappings(mapperClass, originatingSyntaxNode, sourceElementType, targetElementType);
+                    if (mappingRequired)
+                    {
+                        // Check we don't already have a mapping for the collection type - if not create one.
+                        if (!validatedMapperClass.HasHapping(sourceType, targetType))
+                        {
+                            // We've not got a mapping for this exact source to target type yet
+                            validatedMapperClass.CollectionMappings.Add(
+                                ValidatedCollectionMappingTypeInfo.Implicit(
+                                    sourceType,
+                                    targetType,
+                                    originatingSyntaxNode,
+                                    CollectionKind.Collection,
+                                    (sourceElementType, targetElementType)));
+                        }
+
+                        ConfigureImplicitCollectionMappings(mapping, null, validatedMapperClass, originatingSyntaxNode, sourceElementType, targetElementType);
+                    }
                 }
             }
+        }
+
+        private static bool TargetCollectionTypeIsAssignableFromSource(ITypeSymbol sourceType, ITypeSymbol targetType)
+        {
+            // If they're identical types, they're compatible
+            if (sourceType.Equals(targetType, SymbolEqualityComparer.Default))
+            {
+                return true;
+            }
+            
+            // Check if the target type is an interface that the source type implements
+            if (targetType.TypeKind == TypeKind.Interface)
+            {
+                foreach (var interfaceType in sourceType.AllInterfaces)
+                {
+                    if (interfaceType.Equals(targetType, SymbolEqualityComparer.Default))
+                    {
+                        return true;
+                    }
+                }
+            }
+            
+            // Check for inheritance relationship
+            var baseType = sourceType;
+            while (baseType != null)
+            {
+                if (baseType.Equals(targetType, SymbolEqualityComparer.Default))
+                {
+                    return true;
+                }
+                
+                baseType = baseType.BaseType;
+            }
+            
+            return false;
         }
 
         private static void ValidateRemainingEnumMembers(

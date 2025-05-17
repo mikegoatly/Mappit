@@ -47,6 +47,11 @@ namespace Mappit.Generator
         public bool IgnoreMissingPropertiesOnTarget { get; set; }
 
         /// <summary>
+        /// Whether to deep copy collections and dictionaries when mapping properties on this type.
+        /// </summary>
+        public bool DeepCopyCollectionsAndDictionaries { get; internal set; }
+
+        /// <summary>
         /// The member mappings for the source and target types. Keyed by the source member name.
         /// </summary>
         public Dictionary<string, MappingMemberInfo> PropertyMappings { get; init; } = new();

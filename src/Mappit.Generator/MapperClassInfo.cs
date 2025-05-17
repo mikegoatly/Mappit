@@ -17,6 +17,7 @@ namespace Mappit.Generator
             this.ClassDeclarationSyntax = classDeclarationSyntax;
         }
 
+        public bool DeepCopyCollectionsAndDictionaries { get; internal set; }
         public bool IgnoreMissingPropertiesOnTarget { get; internal set; }
         public List<MappingTypeInfo> Mappings { get; } = new();
         public ClassDeclarationSyntax ClassDeclarationSyntax { get; }

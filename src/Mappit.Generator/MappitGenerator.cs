@@ -137,8 +137,9 @@ namespace Mappit.Generator
                 {
                     source.Append($"{conversionMethod.Name}(source.{member.SourceProperty.Name})");
                 }
-                // Check if there is a direct mapping from source to target property type
-                else if (classInfo.TryGetMappedType(member.SourceProperty.Type, member.TargetProperty.Type, out var mapping))
+                // Check if there is a direct mapping from source to target property type and we
+                // aren't being forced to use a reference copy
+                else if (!member.ForceCopyByReference && classInfo.TryGetMappedType(member.SourceProperty.Type, member.TargetProperty.Type, out var mapping))
                 {
                     source.Append($"{mapping!.MethodName}(source.{member.SourceProperty.Name})");
                 }

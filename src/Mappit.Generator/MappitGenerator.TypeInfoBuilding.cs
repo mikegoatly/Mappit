@@ -36,7 +36,7 @@ namespace Mappit.Generator
                 if (member is IMethodSymbol methodSymbol &&
                     methodSymbol.Name.StartsWith("Map", StringComparison.Ordinal) &&
                     methodSymbol.Parameters.Length == 1 &&
-                    methodSymbol.ReturnType is ITypeSymbol returnType)
+                    methodSymbol.ReturnType is ITypeSymbol destType)
                 {
                     // Find the method declaration in the syntax tree
                     var methodDeclaration = methodSymbol.DeclaringSyntaxReferences
@@ -50,16 +50,7 @@ namespace Mappit.Generator
                     }
 
                     var sourceType = methodSymbol.Parameters[0].Type;
-                    var destType = returnType;
-
-                    var mappingInfo = BuildMapping(
-                        context,
-                        classSymbol,
-                        semanticModel,
-                        methodDeclaration,
-                        methodSymbol,
-                        sourceType,
-                        destType);
+                    var mappingInfo = BuildMapping(classSymbol, semanticModel, methodDeclaration, methodSymbol, sourceType, destType);
 
                     // Apply any configuration attributes applied to the method, combined with the class-level settings
                     ApplyMappingConfigForType(mapperClass, methodSymbol, mappingInfo);
@@ -83,6 +74,11 @@ namespace Mappit.Generator
                 methodSymbol,
                 nameof(IgnoreMissingPropertiesOnTargetAttribute),
                 mapperClass.IgnoreMissingPropertiesOnTarget);
+
+            mappingInfo.DeepCopyCollectionsAndDictionaries = AttributeHasTrueValue(
+                methodSymbol,
+                nameof(DeepCopyCollectionsAndDictionariesAttribute),
+                mapperClass.DeepCopyCollectionsAndDictionaries);
         }
 
         private static bool AttributeHasTrueValue(IMethodSymbol methodSymbol, string attributeName, bool defaultValue)
@@ -107,25 +103,35 @@ namespace Mappit.Generator
             var mapperClass = new MapperClassInfo(classDeclarationSyntax, classSymbol);
 
             var ignoreMissingProperties = false;
+            var deepCopyCollectionsAndDictionaries = false;
             var mappitAttribute = context.Attributes.FirstOrDefault();
             if (mappitAttribute != null)
             {
                 foreach (var namedArg in mappitAttribute.NamedArguments)
                 {
-                    if (namedArg.Key == nameof(MappitAttribute.IgnoreMissingPropertiesOnTarget) && namedArg.Value.Value is bool value)
+                    if (namedArg.Value.Value is bool value)
                     {
-                        ignoreMissingProperties = value;
-                        break;
+                        switch (namedArg.Key)
+                        {
+                            case nameof(MappitAttribute.IgnoreMissingPropertiesOnTarget):
+                                ignoreMissingProperties = value;
+                                break;
+                            case nameof(MappitAttribute.DeepCopyCollectionsAndDictionaries):
+                                deepCopyCollectionsAndDictionaries = value;
+                                break;
+
+                        }
                     }
+
                 }
             }
 
             mapperClass.IgnoreMissingPropertiesOnTarget = ignoreMissingProperties;
+            mapperClass.DeepCopyCollectionsAndDictionaries = deepCopyCollectionsAndDictionaries;
             return mapperClass;
         }
 
         private static MappingTypeInfo BuildMapping(
-            GeneratorAttributeSyntaxContext context,
             INamedTypeSymbol classSymbol,
             SemanticModel semanticModel,
             MethodDeclarationSyntax methodDeclaration,
@@ -184,7 +190,7 @@ namespace Mappit.Generator
             {
                 var sourceEnumValue = attr.GetArgumentString(semanticModel, nameof(MapEnumValueAttribute.SourceName), 0);
                 var targetEnumValue = attr.GetArgumentString(semanticModel, nameof(MapEnumValueAttribute.TargetName), 1);
-                
+
                 if (sourceEnumValue is null || targetEnumValue is null)
                 {
                     Debug.WriteLine("Unable to locate SourceName or TargetName argument for enum value mapping");

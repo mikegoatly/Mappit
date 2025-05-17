@@ -7,7 +7,7 @@ namespace Mappit.Tests.MappingGenerationVerification
         [Fact]
         public void MappingCollections_ShouldCopyDataSuccessfully()
         {
-            var source = new CollectionSource
+            var source = new CollectionVarietySource
             {
                 ConcreteList = ["Item1", "Item2", "Item3"],
                 ConcreteArray = ["Item4", "Item5"],
@@ -26,7 +26,7 @@ namespace Mappit.Tests.MappingGenerationVerification
                 AdditionalHashSet = ["Item26", "Item27"]
             };
 
-            var expected = new CollectionTarget
+            var expected = new CollectionVarietyTarget
             {
                 ConcreteList = ["Item1", "Item2", "Item3"],
                 ConcreteArray = ["Item4", "Item5"],
@@ -178,6 +178,187 @@ namespace Mappit.Tests.MappingGenerationVerification
             IExplicitCollectionMappingMapper mapper = new ExplicitCollectionMappingMapper();
             Assert.Equivalent(expected, mapper.Map(source));
         }
+
+        [Fact]
+        public void CopyingCollectionsByRef_ReturnsSameInstance()
+        {
+            var mapper = new CopyCollectionByRefByDefaultMapper();
+            SimplifiedCollections original = CreateSampleSimplifiedCollections();
+
+            var mapped = mapper.Map(original);
+
+            Assert.NotSame(original, mapped);
+            Assert.Same(original.Concrete, mapped.Concrete);
+            Assert.Same(original.ConcreteComplex, mapped.ConcreteComplex);
+            Assert.Same(original.Interfaced, mapped.Interfaced);
+        }
+
+        [Fact]
+        public void CopyingDictionariesByRef_ReturnsSameInstance()
+        {
+            var mapper = new CopyCollectionByRefByDefaultMapper();
+            SimplifiedDictionaries original = CreateSampleSimplifiedDictionaries();
+
+            var mapped = mapper.Map(original);
+
+            Assert.NotSame(original, mapped);
+            Assert.Same(original.Concrete, mapped.Concrete);
+            Assert.Same(original.ConcreteComplexKey, mapped.ConcreteComplexKey);
+            Assert.Same(original.ConcreteComplexValue, mapped.ConcreteComplexValue);
+            Assert.Same(original.Interfaced, mapped.Interfaced);
+        }
+
+        [Fact]
+        public void CopyingCollectionsWithDeepCopy_ReturnsDeepCopies()
+        {
+            var mapper = new CopyCollectionByRefByDefaultMapper();
+            SimplifiedCollections original = CreateSampleSimplifiedCollections();
+
+            var mapped = mapper.MapDeepCopy(original);
+
+            Assert.NotSame(original, mapped);
+            Assert.NotSame(original.Concrete, mapped.Concrete);
+            Assert.NotSame(original.ConcreteComplex, mapped.ConcreteComplex);
+            Assert.NotSame(original.Interfaced, mapped.Interfaced);
+        }
+
+        [Fact]
+        public void CopyingDictionariesWithDeepCopy_ReturnsDeepCopies()
+        {
+            var mapper = new CopyCollectionByRefByDefaultMapper();
+            SimplifiedDictionaries original = CreateSampleSimplifiedDictionaries();
+
+            var mapped = mapper.MapDeepCopy(original);
+
+            Assert.NotSame(original, mapped);
+            Assert.NotSame(original.Concrete, mapped.Concrete);
+            Assert.NotSame(original.ConcreteComplexKey, mapped.ConcreteComplexKey);
+            Assert.NotSame(original.ConcreteComplexValue, mapped.ConcreteComplexValue);
+            Assert.NotSame(original.Interfaced, mapped.Interfaced);
+        }
+
+        [Fact]
+        public void DeepCopyByDefault_CopyingCollectionsByRef_ReturnsSameInstance()
+        {
+            var mapper = new DeepCopyCollectionByDefaultMapper();
+            SimplifiedCollections original = CreateSampleSimplifiedCollections();
+
+            var mapped = mapper.Map(original);
+
+            Assert.NotSame(original, mapped);
+            Assert.Same(original.Concrete, mapped.Concrete);
+            Assert.Same(original.ConcreteComplex, mapped.ConcreteComplex);
+            Assert.Same(original.Interfaced, mapped.Interfaced);
+        }
+
+        [Fact]
+        public void DeepCopyByDefault_CopyingDictionariesByRef_ReturnsSameInstance()
+        {
+            var mapper = new DeepCopyCollectionByDefaultMapper();
+            SimplifiedDictionaries original = CreateSampleSimplifiedDictionaries();
+
+            var mapped = mapper.Map(original);
+
+            Assert.NotSame(original, mapped);
+            Assert.Same(original.Concrete, mapped.Concrete);
+            Assert.Same(original.ConcreteComplexKey, mapped.ConcreteComplexKey);
+            Assert.Same(original.ConcreteComplexValue, mapped.ConcreteComplexValue);
+            Assert.Same(original.Interfaced, mapped.Interfaced);
+        }
+
+        [Fact]
+        public void DeepCopyByDefault_CopyingCollectionsWithDeepCopy_ReturnsDeepCopies()
+        {
+            var mapper = new DeepCopyCollectionByDefaultMapper();
+            SimplifiedCollections original = CreateSampleSimplifiedCollections();
+
+            var mapped = mapper.MapDeepCopy(original);
+
+            Assert.NotSame(original, mapped);
+            Assert.NotSame(original.Concrete, mapped.Concrete);
+            Assert.NotSame(original.ConcreteComplex, mapped.ConcreteComplex);
+            Assert.NotSame(original.Interfaced, mapped.Interfaced);
+        }
+
+        [Fact]
+        public void DeepCopyByDefault_CopyingDictionariesWithDeepCopy_ReturnsDeepCopies()
+        {
+            var mapper = new DeepCopyCollectionByDefaultMapper();
+            SimplifiedDictionaries original = CreateSampleSimplifiedDictionaries();
+
+            var mapped = mapper.MapDeepCopy(original);
+
+            Assert.NotSame(original, mapped);
+            Assert.NotSame(original.Concrete, mapped.Concrete);
+            Assert.NotSame(original.ConcreteComplexKey, mapped.ConcreteComplexKey);
+            Assert.NotSame(original.ConcreteComplexValue, mapped.ConcreteComplexValue);
+            Assert.NotSame(original.Interfaced, mapped.Interfaced);
+        }
+
+        private static SimplifiedCollections CreateSampleSimplifiedCollections()
+        {
+            return new SimplifiedCollections
+            {
+                Concrete = ["a", "b"],
+                Interfaced = ["c", "d"],
+                ConcreteComplex = [new(1), new(2)]
+            };
+        }
+
+        private static SimplifiedDictionaries CreateSampleSimplifiedDictionaries()
+        {
+            return new SimplifiedDictionaries
+            {
+                Concrete = new()
+                {
+                    ["a"] = 1,
+                    ["b"] = 2,
+                },
+                Interfaced = new Dictionary<string, int>()
+                {
+                    ["c"] = 3,
+                    ["d"] = 4,
+                },
+                ConcreteComplexKey = new()
+                {
+                    [new(1)] = 1,
+                    [new(2)] = 2,
+                },
+                ConcreteComplexValue = new()
+                {
+                    [1] = new(1),
+                    [2] = new(2),
+                }
+            };
+        }
+    }
+
+    [Mappit]
+    public partial class CopyCollectionByRefByDefaultMapper
+    {
+        public partial SimplifiedCollections Map(SimplifiedCollections source);
+        public partial SimplifiedDictionaries Map(SimplifiedDictionaries source);
+
+        [DeepCopyCollectionsAndDictionaries]
+        public partial SimplifiedCollections MapDeepCopy(SimplifiedCollections source);
+        [DeepCopyCollectionsAndDictionaries]
+        public partial SimplifiedDictionaries MapDeepCopy(SimplifiedDictionaries source);
+    }
+
+    [Mappit(DeepCopyCollectionsAndDictionaries = true)]
+    public partial class DeepCopyCollectionByDefaultMapper
+    {
+        [DeepCopyCollectionsAndDictionaries(false)]
+        public partial SimplifiedCollections Map(SimplifiedCollections source);
+        [DeepCopyCollectionsAndDictionaries(false)]
+        public partial SimplifiedDictionaries Map(SimplifiedDictionaries source);
+        public partial SimplifiedCollections MapDeepCopy(SimplifiedCollections source);
+        public partial SimplifiedDictionaries MapDeepCopy(SimplifiedDictionaries source);
+    }
+
+    public partial class CopyCollectionDeepCopyByDefaultMapper
+    {
+
     }
 
     [Mappit]
@@ -193,22 +374,33 @@ namespace Mappit.Tests.MappingGenerationVerification
     public partial class CollectionMapper
     {
         public partial DictionaryTarget Map(DictionarySource source);
-        public partial CollectionTarget Map(CollectionSource source);
+        public partial CollectionVarietyTarget Map(CollectionVarietySource source);
         public partial CollectionEntityMapped Map(CollectionEntity source);
     }
 
     public record CollectionEntity(int Id);
     public record CollectionEntityMapped(int Id);
 
-    public class CollectionSource
+    public class SimplifiedCollections
+    {
+        public List<string>? Concrete { get; init; }
+        public IReadOnlyList<string>? Interfaced { get; init; }
+        public List<CollectionEntity>? ConcreteComplex { get; init; }
+    }
+
+    public class SimplifiedDictionaries
+    {
+        public Dictionary<string, int>? Concrete { get; init; }
+        public IReadOnlyDictionary<string, int>? Interfaced { get; init; }
+        public Dictionary<int, CollectionEntity>? ConcreteComplexValue { get; init; }
+        public Dictionary<CollectionEntity, int>? ConcreteComplexKey { get; init; }
+    }
+
+    public class CollectionVarietySource
     {
         // Basic lists
-#pragma warning disable CA1002 // Do not expose generic lists
         public required List<string> ConcreteList { get; init; }
-#pragma warning restore CA1002 // Do not expose generic lists
-#pragma warning disable CA1819 // Properties should not return arrays
         public required string[] ConcreteArray { get; init; }
-#pragma warning restore CA1819 // Properties should not return arrays
         public required IList<string> IListInterface { get; init; }
         public required ICollection<string> ICollectionInterface { get; init; }
         public required IEnumerable<string> IEnumerableInterface { get; init; }
@@ -219,9 +411,7 @@ namespace Mappit.Tests.MappingGenerationVerification
         public required HashSet<string> ConcreteSet { get; init; }
 
         // Lists with mapped type
-#pragma warning disable CA1819 // Properties should not return arrays
         public required CollectionEntity[] EntityArray { get; init; }
-#pragma warning restore CA1819 // Properties should not return arrays
         public required IReadOnlyList<CollectionEntity> CollectionEntities { get; init; }
 
         // Additional lists
@@ -231,15 +421,11 @@ namespace Mappit.Tests.MappingGenerationVerification
 
     }
 
-    public class CollectionTarget
+    public class CollectionVarietyTarget
     {
         // Map basic lists as-is
-#pragma warning disable CA1002 // Do not expose generic lists
         public required List<string> ConcreteList { get; init; }
-#pragma warning restore CA1002 // Do not expose generic lists
-#pragma warning disable CA1819 // Properties should not return arrays
         public required string[] ConcreteArray { get; init; }
-#pragma warning restore CA1819 // Properties should not return arrays
         public required IList<string> IListInterface { get; init; }
         public required ICollection<string> ICollectionInterface { get; init; }
         public required IEnumerable<string> IEnumerableInterface { get; init; }
@@ -250,18 +436,12 @@ namespace Mappit.Tests.MappingGenerationVerification
         public required HashSet<string> ConcreteSet { get; init; }
 
         // Lists with mapped type
-#pragma warning disable CA1819 // Properties should not return arrays
         public required CollectionEntityMapped[] EntityArray { get; init; }
-#pragma warning restore CA1819 // Properties should not return arrays
         public required IReadOnlyList<CollectionEntityMapped> CollectionEntities { get; init; }
 
         // Map additional lists to other list types
-#pragma warning disable CA1819 // Properties should not return arrays
         public required string[] AdditionalIListInterface { get; init; }
-#pragma warning restore CA1819 // Properties should not return arrays
-#pragma warning disable CA1002 // Do not expose generic lists
         public required List<string> AdditionalIEnumerableInterface { get; init; }
-#pragma warning restore CA1002 // Do not expose generic lists
         public required ISet<string> AdditionalHashSet { get; init; }
     }
 

@@ -34,10 +34,11 @@ namespace Mappit.Generator
         public TargetMapping TargetMapping { get; internal set; }
 
         /// <summary>
-        /// The concrete type that should be instantiated for a collection or dictionary.
-        /// For example, if the target property is IEnumerable{T}, this would be List{T}.
+        /// In the case where a collection/dictionary is being mapped, when this is set to true, we've validated
+        /// that the collection/dictionary types are compatible and the user has opted to use the same instance
+        /// in the target as the source.
         /// </summary>
-        public string? ConcreteTargetType { get; internal set; }
+        public bool ForceCopyByReference { get; internal set; }
 
         public static ValidatedMappingMemberInfo Invalid(IPropertySymbol sourceProperty, IPropertySymbol targetProperty)
         {
