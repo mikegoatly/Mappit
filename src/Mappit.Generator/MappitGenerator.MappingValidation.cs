@@ -28,7 +28,13 @@ namespace Mappit.Generator
                     continue;
                 }
 
-                if (mapping.IsEnum)
+                if (!mapping.RequiresGeneration)
+                {
+                    // We don't need to validate mappings for concrete methods; we aren't generating anything it's up to the user to implement
+                    // We do add it to the validated type mappings though, so it can be added to the interface.
+                    validatedMapperClass.TypeMappings.Add(ValidatedMappingTypeInfo.ExplicitUserImplemented(mapping));
+                }
+                else if (mapping.IsEnum)
                 {
                     ValidateEnumMapping(context, mapperClass, mapping, validatedMapperClass);
                 }

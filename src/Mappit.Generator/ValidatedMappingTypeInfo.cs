@@ -13,7 +13,7 @@ namespace Mappit.Generator
             ValidatedMappingMemberInfoSet memberMappings,
             ITypeSymbol sourceType,
             ITypeSymbol targetType,
-            IMethodSymbol constructor,
+            IMethodSymbol? constructor,
             bool isImplicitMapping,
             MappingTypeInfo mapping)
             : base(
@@ -39,7 +39,7 @@ namespace Mappit.Generator
         /// </remarks>
         public ValidatedMappingMemberInfoSet MemberMappings { get; }
 
-        public IMethodSymbol Constructor { get; }
+        public IMethodSymbol? Constructor { get; }
 
         public static ValidatedMappingTypeInfo Implicit(
             MappingTypeInfo mapping,
@@ -69,6 +69,19 @@ namespace Mappit.Generator
                 mapping.SourceType,
                 mapping.TargetType,
                 constructor,
+                false,
+                mapping);
+        }
+
+        public static ValidatedMappingTypeInfo ExplicitUserImplemented(
+           MappingTypeInfo mapping)
+        {
+            return new ValidatedMappingTypeInfo(
+                mapping.MethodName,
+                [],
+                mapping.SourceType,
+                mapping.TargetType,
+                null,
                 false,
                 mapping);
         }

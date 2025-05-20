@@ -132,6 +132,14 @@ namespace Mappit.Tests.MappingGenerationVerification
             // Assert
             Assert.Equal("WEIRD", target.Name);
         }
+
+        [Fact]
+        public void CustomEnumMapping_ShouldBeAddedToInterface()
+        {
+            var result = _mapper.MapEnumCustom("a");
+
+            Assert.Equal(TargetStatus.Enabled, result);
+        }
     }
 
     // Test enum types with different values but same meaning
@@ -203,6 +211,17 @@ namespace Mappit.Tests.MappingGenerationVerification
             }
 
             return new CustomMappingMapped(new string(source.Name.Reverse().ToArray()));
+        }
+
+        public TargetStatus MapEnumCustom(string source)
+        {
+            return source switch
+            {
+                "a" => TargetStatus.Enabled,
+                "b" => TargetStatus.Disabled,
+                "c" => TargetStatus.AwaitingConfirmation,
+                _ => throw new ArgumentOutOfRangeException(nameof(source), source, null)
+            };
         }
     }
 

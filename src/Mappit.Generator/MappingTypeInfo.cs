@@ -24,7 +24,7 @@ namespace Mappit.Generator
 
             if (IsEnum)
             {
-                if (!sourceType.IsEnum() || !targetType.IsEnum())
+                if (RequiresGeneration && (!sourceType.IsEnum() || !targetType.IsEnum()))
                 {
                     ValidationErrors.Add((MappitErrorCode.EnumTypeMismatch, $"{(sourceType.IsEnum() ? "source type" : "target type")} is an enum, but the other is not."));
                 }
